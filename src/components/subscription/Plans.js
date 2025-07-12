@@ -19,7 +19,7 @@ const plans = [
     priceYearly: '$10',
     description: 'Perfect for offline studying',
     features: ['Everything in Free', 'Printable PDF Flashcards', 'PDF export formats'],
-    planKey: 'basic',
+    planKey: 'print',
     buttonText: 'Subscribe',
   },
   {
@@ -28,7 +28,7 @@ const plans = [
     priceYearly: '$30',
     description: 'Full access and unlimited AI stories',
     features: ['Everything in Print Plan', 'Unlimited story generation', 'Save flash history', 'Collaborate with parents'],
-    planKey: 'premium',
+    planKey: 'pro',
     buttonText: 'Grow with Pro',
   }
 ];
@@ -52,13 +52,12 @@ export default function Plans() {
   const handleSubscribe = async (plan) => {
     const BASE_URL = process.env.REACT_APP_BACKEND_URL;
     try {
-      const response = await fetch("https://sprouttie-server.onrender.com/create-checkout-session", {
+      const res = await fetch('https://sprouttie-server.onrender.com/create-checkout-session', {
   method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({ plan }),
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ plan: 'print' }) // or 'pro'
 });
+
 
       const data = await response.json();
       if (data.url) {
