@@ -52,11 +52,13 @@ export default function Plans() {
   const handleSubscribe = async (plan) => {
     const BASE_URL = process.env.REACT_APP_BACKEND_URL;
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/create-checkout-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan })
-      });
+      const response = await fetch("https://sprouttie-server.onrender.com/create-checkout-session", {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ plan }),
+});
 
       const data = await response.json();
       if (data.id) {
