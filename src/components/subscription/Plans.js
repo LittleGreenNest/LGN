@@ -61,11 +61,10 @@ export default function Plans() {
 });
 
       const data = await response.json();
-      if (data.id) {
-        window.location.href = `https://checkout.stripe.com/pay/${data.id}`;
-      } else {
-        alert(data.error || 'Something went wrong.');
-      }
+      if (data.url) {
+window.location.href = data.url;
+} else {
+alert(data.error || 'Something went wrong.');}
     } catch (error) {
       console.error('Subscription error:', error);
       alert('Failed to start subscription.');
