@@ -2,9 +2,12 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
+import PDFSuccess from './pdf-success';
+
 
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
+
 import { FlashcardProvider } from './context/FlashcardContext';
 
 // Layout Components
@@ -134,6 +137,8 @@ function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/plans" element={<Plans />} />
+<Route path="/pdf-success" element={<PDFSuccess />} />
+
               
               {/* Protected routes */}
               <Route path="/*" element={<AppContent />} />

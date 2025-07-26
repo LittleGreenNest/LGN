@@ -1,5 +1,6 @@
 // components/FlashcardManager.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';  // make sure this path is correct
 import { useFlashcards } from '../context/FlashcardContext';
 import CSVImport from './CSVImport';
 import PrintFlashcards from './PrintFlashcards';
@@ -16,6 +17,19 @@ const FlashcardManager = () => {
     deleteFlashcard
   } = useFlashcards();
   
+  
+  const [plan, setPlan] = useState(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setPlan(user?.user_metadata?.plan || 'free');
+      setLoadingPlan(false);
+    };
+    fetchUserPlan();
+  }, []);
+
   // UI state
   const [activeTab, setActiveTab] = useState('categories');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -537,9 +551,30 @@ const FlashcardManager = () => {
         </div>
       )}
       
-      {/* Print Flashcards Tab */}
+{/* Print Flashcards Tab */}
       {activeTab === 'print-flashcards' && (
-        <PrintFlashcards />
+        <div className="relative">
+          {!loadingPlan && plan !== 'pdf' && (
+            <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-8">
+              <div>
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10 mb-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c.83 0 1.5-.67 1.5-1.5S12.83 8 12 8s-1.5.67-1.5 1.5S11.17 11 12 11zm0 0v4m-6 4h12a2 2 0 002-2v-5a2 2 0 00-2-2h-3.28a2 2 0 01-1.44-.59l-1.41-1.41a2 2 0 00-1.44-.59H6a2 2 0 00-2 2v7a2 2 0 002 2z" />
+                </svg>
+                <h2 className="text-xl font-semibold mb-2">Upgrade to download PDFs</h2>
+                <p className="mb-4 text-gray-600">This feature is available on the PDF plan</p>
+                <button
+                  onClick={() => window.location.href = '/plans'}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  View Plans
+                </button>
+              </div>
+            </div>
+          )}
+          <div className={!loadingPlan && plan !== 'pdf' ? 'pointer-events-none opacity-40' : ''}>
+            <PrintFlashcards />
+          </div>
+        </div>
       )}
     </div>
   );

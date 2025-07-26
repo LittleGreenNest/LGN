@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-
+import WaitlistForm from '../WaitlistForm'; 
 const plans = [
   {
     name: 'Free',
@@ -27,7 +26,12 @@ const plans = [
     priceMonthly: '$3',
     priceYearly: '$30',
     description: 'Full access and unlimited AI stories',
-    features: ['Everything in Print Plan', 'Unlimited story generation', 'Save flash history', 'Collaborate with parents'],
+    features: [
+      'Everything in Print Plan',
+      'Unlimited story generation',
+      'Save flash history',
+      'Collaborate with parents'
+    ],
     planKey: 'pro',
     buttonText: 'Grow with Pro',
   }
@@ -37,12 +41,17 @@ export default function Plans() {
   const navigate = useNavigate();
   const [userPlan, setUserPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly');
+  const [showWaitlist, setShowWaitlist] = useState(false);
 
   useEffect(() => {
     const fetchUserPlan = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data, error } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
+        const { data } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', user.id)
+          .single();
         if (data) setUserPlan(data.plan);
       }
     };
@@ -50,19 +59,18 @@ export default function Plans() {
   }, []);
 
   const handleSubscribe = async (plan) => {
-    const BASE_URL = process.env.REACT_APP_BACKEND_URL;
     try {
       const res = await fetch('https://sprouttie-server.onrender.com/create-checkout-session', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ plan })
-});
-const data = await res.json();
-
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan })
+      });
+      const data = await res.json();
       if (data.url) {
-window.location.href = data.url;
-} else {
-alert(data.error || 'Something went wrong.');}
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Something went wrong.');
+      }
     } catch (error) {
       console.error('Subscription error:', error);
       alert('Failed to start subscription.');
@@ -86,7 +94,9 @@ alert(data.error || 'Something went wrong.');}
                 <p className="text-gray-600 mb-4">{plan.description}</p>
                 <div className="text-3xl font-bold mb-4">
                   {billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly}
-                  <span className="text-lg font-normal text-gray-500">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                  <span className="text-lg font-normal text-gray-500">
+                    /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                  </span>
                 </div>
                 <ul className="space-y-3 mb-8 text-left">
                   {plan.features.map((feature, idx) => (
@@ -99,6 +109,7 @@ alert(data.error || 'Something went wrong.');}
                   ))}
                 </ul>
               </div>
+
               {userPlan === plan.planKey ? (
                 <button
                   disabled
@@ -108,10 +119,16 @@ alert(data.error || 'Something went wrong.');}
                 </button>
               ) : (
                 <button
-                  onClick={() =>
-                    plan.planKey === 'free' ? navigate('/profile') : handleSubscribe(plan.planKey)
-                  }
-                  className={`bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded-md font-medium transition-colors mt-auto`}
+                  onClick={() => {
+                    if (plan.planKey === 'free') {
+                      navigate('/profile');
+                    } else if (plan.planKey === 'print') {
+                      handleSubscribe(plan.planKey);
+                    } else if (plan.planKey === 'pro') {
+                      setShowWaitlist(true);
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded-md font-medium transition-colors mt-auto"
                 >
                   {plan.buttonText}
                 </button>
@@ -125,14 +142,17 @@ alert(data.error || 'Something went wrong.');}
             <input
               type="checkbox"
               checked={billingCycle === 'yearly'}
-              onChange={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
+              onChange={() =>
+                setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')
+              }
               className="form-checkbox text-green-600"
             />
             <span className="ml-2 text-gray-700">Bill yearly</span>
           </label>
         </div>
       </div>
+
+      {showWaitlist && <WaitlistForm onClose={() => setShowWaitlist(false)} />}
     </div>
   );
 }
-

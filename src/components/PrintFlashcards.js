@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFlashcards } from '../context/FlashcardContext';
 import { jsPDF } from 'jspdf';
+import { supabase } from '../supabaseClient';
 
 const PrintFlashcards = ({ onClose }) => {
   const { 
@@ -10,6 +11,17 @@ const PrintFlashcards = ({ onClose }) => {
     sets,
     getFlashcardsForSet
   } = useFlashcards();
+
+  
+  const [plan, setPlan] = useState(null);
+
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setPlan(user?.user_metadata?.plan || 'free');
+    };
+    fetchUserPlan();
+  }, []);
 
   // State for selection
   const [selectedFlashcards, setSelectedFlashcards] = useState([]);
@@ -175,6 +187,11 @@ const PrintFlashcards = ({ onClose }) => {
 
   // Generate and download PDF
   const generatePDF = () => {
+    if (plan !== 'pdf') {
+      setMessage('Please upgrade to the PDF Plan to download flashcards.');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
     if (previewFlashcards.length === 0) {
       setMessage('Please generate a preview first.');
       setTimeout(() => setMessage(''), 3000);
