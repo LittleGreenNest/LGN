@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import '../App.css';
+import '../../App.css';
 import WaitlistForm from '../components/WaitlistForm';
 import { supabase } from '../../supabaseClient';
 
