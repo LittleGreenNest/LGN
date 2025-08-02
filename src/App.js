@@ -26,6 +26,24 @@ import FlashcardManager from './components/FlashcardManager';
 import HistoryView from './components/HistoryView';
 import Plans from './components/subscription/Plans';
 
+// Supabase
+import { supabase } from './supabaseClient';
+
+export const fetchUserPlan = async (userEmail) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('plan')
+    .eq('email', userEmail)
+    .single();
+
+  if (error) {
+    console.error('Error fetching plan:', error.message);
+    return 'free'; // fallback
+  }
+
+  return data?.plan || 'free';
+};
+
 // AppContent component to handle tab navigation after authentication
 const AppContent = () => {
   const { currentUser, loading } = useAuth();
