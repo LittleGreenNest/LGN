@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../../App.css';
-import WaitlistForm from '../components/WaitlistForm';
+import WaitlistForm from '../WaitlistForm';
 import { supabase } from '../../supabaseClient';
 
 const Plans = () => {
