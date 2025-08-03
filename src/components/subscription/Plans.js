@@ -50,24 +50,27 @@ export default function Plans() {
   }, []);
 
   const handleSubscribe = async (plan) => {
-    const BASE_URL = process.env.REACT_APP_BACKEND_URL;
-    try {
-      const res = await fetch('https://sprouttie-server.onrender.com/create-checkout-session', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ plan })
-});
-const data = await res.json();
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-      if (data.url) {
-window.location.href = data.url;
-} else {
-alert(data.error || 'Something went wrong.');}
-    } catch (error) {
-      console.error('Subscription error:', error);
-      alert('Failed to start subscription.');
+  try {
+    const res = await fetch(`${BACKEND_URL}/create-checkout-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan }),
+    });
+
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert(data.error || 'Something went wrong.');
     }
-  };
+  } catch (error) {
+    console.error('Subscription error:', error);
+    alert('Failed to start subscription.');
+  }
+};
 
   return (
     <div className="bg-gray-50 py-16 px-6 sm:px-8 lg:px-24">
