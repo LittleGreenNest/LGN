@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 
+const BASE_URL = process.env.REACT_APP_BACKEND_URL;
+
 const plans = [
   {
     name: 'Free',
@@ -59,15 +61,19 @@ export default function Plans() {
       body: JSON.stringify({ plan }),
     });
 
-    const data = await res.json();
+const handleSubscribe = async (plan) => {
+  try {
+    const res = await fetch(`${BASE_URL}/create-checkout-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan })
+    });
 
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      alert(data.error || 'Something went wrong.');
-    }
-  } catch (error) {
-    console.error('Subscription error:', error);
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else alert(data.error || 'Something went wrong.');
+  } catch (e) {
+    console.error('Subscription error:', e);
     alert('Failed to start subscription.');
   }
 };
