@@ -1,4 +1,4 @@
-
+// src/components/subscription/Plans.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
@@ -44,7 +44,11 @@ export default function Plans() {
     const fetchUserPlan = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data, error } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
+        const { data } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', user.id)
+          .single();
         if (data) setUserPlan(data.plan);
       }
     };
@@ -52,31 +56,24 @@ export default function Plans() {
   }, []);
 
   const handleSubscribe = async (plan) => {
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+    try {
+      const res = await fetch(`${BASE_URL}/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // add credentials: 'include' if your backend reads a cookie session
+        body: JSON.stringify({ plan })
+      });
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/create-checkout-session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
-    });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
 
-const handleSubscribe = async (plan) => {
-  try {
-    const res = await fetch(`${BASE_URL}/create-checkout-session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan })
-    });
-
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else alert(data.error || 'Something went wrong.');
-  } catch (e) {
-    console.error('Subscription error:', e);
-    alert('Failed to start subscription.');
-  }
-};
+      if (data.url) window.location.href = data.url;
+      else alert(data.error || 'Something went wrong.');
+    } catch (e) {
+      console.error('Subscription error:', e);
+      alert('Failed to start subscription.');
+    }
+  };
 
   return (
     <div className="bg-gray-50 py-16 px-6 sm:px-8 lg:px-24">
@@ -120,7 +117,7 @@ const handleSubscribe = async (plan) => {
                   onClick={() =>
                     plan.planKey === 'free' ? navigate('/profile') : handleSubscribe(plan.planKey)
                   }
-                  className={`bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded-md font-medium transition-colors mt-auto`}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded-md font-medium transition-colors mt-auto"
                 >
                   {plan.buttonText}
                 </button>
@@ -144,4 +141,3 @@ const handleSubscribe = async (plan) => {
     </div>
   );
 }
-
