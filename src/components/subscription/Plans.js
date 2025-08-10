@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import WaitlistForm from '../../WaitlistForm';
+import WaitlistForm from '../WaitlistForm';
 
 const BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
