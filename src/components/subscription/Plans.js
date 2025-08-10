@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
+import WaitlistForm from '../../WaitlistForm';
 
 const BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -39,6 +40,7 @@ export default function Plans() {
   const navigate = useNavigate();
   const [userPlan, setUserPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly');
+  const [showWaitlist, setShowWaitlist] = useState(false);
 
   useEffect(() => {
     const fetchUserPlan = async () => {
@@ -55,23 +57,44 @@ export default function Plans() {
     fetchUserPlan();
   }, []);
 
+  // UX niceties for modal
+  useEffect(() => {
+    if (showWaitlist) {
+      document.body.style.overflow = 'hidden';
+      const onKey = (e) => e.key === 'Escape' && setShowWaitlist(false);
+      window.addEventListener('keydown', onKey);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', onKey);
+      };
+    }
+  }, [showWaitlist]);
+
   const handleSubscribe = async (plan) => {
     try {
       const res = await fetch(`${BASE_URL}/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // add credentials: 'include' if your backend reads a cookie session
         body: JSON.stringify({ plan })
       });
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-
       if (data.url) window.location.href = data.url;
       else alert(data.error || 'Something went wrong.');
     } catch (e) {
       console.error('Subscription error:', e);
       alert('Failed to start subscription.');
+    }
+  };
+
+  const onPlanClick = (planKey) => {
+    if (planKey === 'free') return navigate('/profile');
+    if (planKey === 'print') return handleSubscribe('print');
+    if (planKey === 'pro') {
+      setShowWaitlist(true);
+      // optional analytics
+      if (window.gtag) window.gtag('event', 'open_waitlist_modal', { source: 'plans_modal' });
+      if (window.fbq) window.fbq('trackCustom', 'OpenWaitlistModal', { source: 'plans_modal' });
     }
   };
 
@@ -105,6 +128,7 @@ export default function Plans() {
                   ))}
                 </ul>
               </div>
+
               {userPlan === plan.planKey ? (
                 <button
                   disabled
@@ -114,9 +138,7 @@ export default function Plans() {
                 </button>
               ) : (
                 <button
-                  onClick={() =>
-                    plan.planKey === 'free' ? navigate('/profile') : handleSubscribe(plan.planKey)
-                  }
+                  onClick={() => onPlanClick(plan.planKey)}
                   className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded-md font-medium transition-colors mt-auto"
                 >
                   {plan.buttonText}
@@ -138,6 +160,24 @@ export default function Plans() {
           </label>
         </div>
       </div>
+
+      {/* Waitlist modal */}
+      {showWaitlist && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Join Pro Plan Waitlist"
+          onClick={() => setShowWaitlist(false)}
+        >
+          <div
+            className="relative w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
+          >
+            <WaitlistForm onClose={() => setShowWaitlist(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
