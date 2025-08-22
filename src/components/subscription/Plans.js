@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import WaitlistForm from '../WaitlistForm';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const SERVER_URL = process.env.REACT_APP_BACKEND_URL;
 
 const plans = [
   {
@@ -41,21 +41,25 @@ export default function Plans() {
   const [userPlan, setUserPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [showWaitlist, setShowWaitlist] = useState(false);
+const isCurrentPlan = (dbPlan, cardKey) => {
+  const alias = { pdf: 'print', print: 'print', free: 'free', pro: 'pro' };
+  return (alias[dbPlan] || dbPlan) === cardKey;
+};
 
   useEffect(() => {
-    const fetchUserPlan = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('plan')
-          .eq('id', user.id)
-          .single();
-        if (data) setUserPlan(data.plan);
-      }
-    };
-    fetchUserPlan();
-  }, []);
+  const fetchUserPlan = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', user.id)
+      .single();
+    if (data) setUserPlan(data.plan);
+  };
+  fetchUserPlan();
+}, []);
+
 
   // UX niceties for modal
   useEffect(() => {
@@ -72,11 +76,18 @@ export default function Plans() {
 
   const handleSubscribe = async (plan) => {
     try {
-      const res = await fetch(`${BASE_URL}/create-checkout-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan })
-      });
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) return navigate('/login'); // or show a toast
+
+const res = await fetch(`${SERVER_URL}/create-checkout-session`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+plan,              // 'print' (server maps to PDF price)
+userId: user.id,   // becomes client_reference_id + metadata.user_id
+email: user.email, // becomes customer_email (fallback)
+}),
+});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -129,7 +140,7 @@ export default function Plans() {
                 </ul>
               </div>
 
-              {userPlan === plan.planKey ? (
+              {isCurrentPlan(userPlan, plan.planKey) ? (
                 <button
                   disabled
                   className="w-full py-2 rounded-md font-medium text-gray-500 bg-gray-100 cursor-not-allowed"
