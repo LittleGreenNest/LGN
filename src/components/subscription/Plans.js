@@ -60,24 +60,42 @@ const isCurrentPlan = (dbPlan, cardKey) => {
   fetchUserPlan();
 }, []);
 
+// NEW: resume checkout after login
+useEffect(() => {
+  const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    if (session?.user) {
+      const pending = sessionStorage.getItem('pendingPlan');
+      if (pending) {
+        sessionStorage.removeItem('pendingPlan');
+        // now that we're logged in, resume checkout
+        handleSubscribe(pending);
+      }
+    }
+  });
+  return () => sub?.subscription?.unsubscribe?.();
+}, []);
 
   // UX niceties for modal
   useEffect(() => {
-    if (showWaitlist) {
-      document.body.style.overflow = 'hidden';
-      const onKey = (e) => e.key === 'Escape' && setShowWaitlist(false);
-      window.addEventListener('keydown', onKey);
-      return () => {
-        document.body.style.overflow = '';
-        window.removeEventListener('keydown', onKey);
-      };
-    }
-  }, [showWaitlist]);
+  if (showWaitlist) {
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => e.key === 'Escape' && setShowWaitlist(false);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
+    };
+  }
+}, [showWaitlist]);
 
   const handleSubscribe = async (plan) => {
     try {
 const { data: { user } } = await supabase.auth.getUser();
-if (!user) return navigate('/login'); // or show a toast
+if (!user) {
+  sessionStorage.setItem('pendingPlan', plan);   // remember the intent
+  navigate('/login?next=/plans');                // come back here after login
+  return;
+}
 
 const res = await fetch(`${SERVER_URL}/create-checkout-session`, {
 method: 'POST',
