@@ -6,3 +6,7 @@ node_modules
 .env
 lgn.zip # ignore it next time
 lgn.zip
+
+# ignore large archives
+lgn.zip
+*.zip
