@@ -10,3 +10,7 @@ lgn.zip
 # ignore large archives
 lgn.zip
 *.zip
+
+# ignore archives
+lgn.zip
+*.zip
