@@ -88,33 +88,28 @@ useEffect(() => {
   }
 }, [showWaitlist]);
 
-  const handleSubscribe = async (plan) => {
-    try {
-const { data: { user } } = await supabase.auth.getUser();
-if (!user) {
-  sessionStorage.setItem('pendingPlan', plan);   // remember the intent
-  navigate('/login?next=/plans');                // come back here after login
-  return;
-}
+// Start Stripe Checkout (works for logged-in users and guests)
+const handleSubscribe = async (plan) => {
+  try {
+    // If logged in, include identifiers; otherwise Stripe will collect email
+    const { data: { user } } = await supabase.auth.getUser();
+    const identifiers = user ? { userId: user.id, email: user.email } : {};
 
-const res = await fetch(`${SERVER_URL}/create-checkout-session`, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({
-plan,              // 'print' (server maps to PDF price)
-userId: user.id,   // becomes client_reference_id + metadata.user_id
-email: user.email, // becomes customer_email (fallback)
-}),
-});
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else alert(data.error || 'Something went wrong.');
-    } catch (e) {
-      console.error('Subscription error:', e);
-      alert('Failed to start subscription.');
-    }
-  };
+    const res = await fetch(`${SERVER_URL}/create-checkout-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, ...identifiers }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else alert(data.error || 'Something went wrong.');
+  } catch (e) {
+    console.error('Subscription error:', e);
+    alert('Failed to start subscription.');
+  }
+};
 
   const onPlanClick = (planKey) => {
     if (planKey === 'free') return navigate('/profile');
