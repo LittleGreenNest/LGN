@@ -50,7 +50,9 @@
       "last 1 safari version"
     ]
   },
-  "keywords": [],
+    "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "proxy": "https://sprouttie-server-1.onrender.com"
 }
+

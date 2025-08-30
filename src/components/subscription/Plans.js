@@ -1,10 +1,12 @@
-// src/components/subscription/Plans.js
+
+//src/components/subscription/Plans.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import WaitlistForm from '../WaitlistForm';
 
-const SERVER_URL = process.env.REACT_APP_BACKEND_URL;
+const SERVER_URL =
+  process.env.NODE_ENV === 'development' ? '' : process.env.REACT_APP_BACKEND_URL;
 
 const plans = [
   {
