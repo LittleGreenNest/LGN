@@ -15,31 +15,41 @@ const defaultCategories = [
 
 // Default flashcards
 const defaultFlashcards = [
-  { id: 'f1', word: 'Dog', categoryId: 'cat1' },
-  { id: 'f2', word: 'Cat', categoryId: 'cat1' },
-  { id: 'f3', word: 'Horse', categoryId: 'cat1' },
-  { id: 'f4', word: 'Lion', categoryId: 'cat1' },
-  { id: 'f5', word: 'Tiger', categoryId: 'cat1' },
-  { id: 'f6', word: 'Car', categoryId: 'cat2' },
-  { id: 'f7', word: 'Truck', categoryId: 'cat2' },
-  { id: 'f8', word: 'Bus', categoryId: 'cat2' },
-  { id: 'f9', word: 'Train', categoryId: 'cat2' },
-  { id: 'f10', word: 'Airplane', categoryId: 'cat2' },
-  { id: 'f11', word: 'Chair', categoryId: 'cat3' },
-  { id: 'f12', word: 'Table', categoryId: 'cat3' },
-  { id: 'f13', word: 'Bed', categoryId: 'cat3' },
-  { id: 'f14', word: 'Lamp', categoryId: 'cat3' },
-  { id: 'f15', word: 'Sofa', categoryId: 'cat3' },
-  { id: 'f16', word: 'Tree', categoryId: 'cat4' },
-  { id: 'f17', word: 'Flower', categoryId: 'cat4' },
-  { id: 'f18', word: 'River', categoryId: 'cat4' },
-  { id: 'f19', word: 'Mountain', categoryId: 'cat4' },
-  { id: 'f20', word: 'Sun', categoryId: 'cat4' },
-  { id: 'f21', word: 'Hand', categoryId: 'cat5' },
-  { id: 'f22', word: 'Foot', categoryId: 'cat5' },
-  { id: 'f23', word: 'Head', categoryId: 'cat5' },
-  { id: 'f24', word: 'Ear', categoryId: 'cat5' },
-  { id: 'f25', word: 'Eye', categoryId: 'cat5' }
+// Animals
+{ id: 'f1',  word: '狗',   english: 'Dog',     pinyin: 'gǒu',     categoryId: 'cat1' },
+{ id: 'f2',  word: '猫',   english: 'Cat',     pinyin: 'māo',     categoryId: 'cat1' },
+{ id: 'f3',  word: '马',   english: 'Horse',   pinyin: 'mǎ',      categoryId: 'cat1' },
+{ id: 'f4',  word: '狮子', english: 'Lion',    pinyin: 'shīzi',   categoryId: 'cat1' },
+{ id: 'f5',  word: '老虎', english: 'Tiger',   pinyin: 'lǎohǔ',   categoryId: 'cat1' },
+
+// Vehicles
+{ id: 'f6',  word: '汽车', english: 'Car',      pinyin: 'qìchē',   categoryId: 'cat2' },
+{ id: 'f7',  word: '卡车', english: 'Truck',    pinyin: 'kǎchē',   categoryId: 'cat2' },
+{ id: 'f8',  word: '公共汽车', english: 'Bus',  pinyin: 'gōnggòng qìchē', categoryId: 'cat2' },
+{ id: 'f9',  word: '火车', english: 'Train',    pinyin: 'huǒchē',  categoryId: 'cat2' },
+{ id: 'f10', word: '飞机', english: 'Airplane', pinyin: 'fēijī',   categoryId: 'cat2' },
+
+// Furniture
+{ id: 'f11', word: '椅子', english: 'Chair',    pinyin: 'yǐzi',    categoryId: 'cat3' },
+{ id: 'f12', word: '桌子', english: 'Table',    pinyin: 'zhuōzi',  categoryId: 'cat3' },
+{ id: 'f13', word: '床',   english: 'Bed',      pinyin: 'chuáng',  categoryId: 'cat3' },
+{ id: 'f14', word: '灯',   english: 'Lamp',     pinyin: 'dēng',    categoryId: 'cat3' },
+{ id: 'f15', word: '沙发', english: 'Sofa',     pinyin: 'shāfā',   categoryId: 'cat3' },
+
+// Nature
+{ id: 'f16', word: '树',   english: 'Tree',     pinyin: 'shù',     categoryId: 'cat4' },
+{ id: 'f17', word: '花',   english: 'Flower',   pinyin: 'huā',     categoryId: 'cat4' },
+{ id: 'f18', word: '河流', english: 'River',    pinyin: 'héliú',   categoryId: 'cat4' },
+{ id: 'f19', word: '山',   english: 'Mountain', pinyin: 'shān',    categoryId: 'cat4' },
+{ id: 'f20', word: '太阳', english: 'Sun',      pinyin: 'tàiyáng', categoryId: 'cat4' },
+
+// Body parts
+{ id: 'f21', word: '手',   english: 'Hand',     pinyin: 'shǒu',    categoryId: 'cat5' },
+{ id: 'f22', word: '脚',   english: 'Foot',     pinyin: 'jiǎo',    categoryId: 'cat5' },
+{ id: 'f23', word: '头',   english: 'Head',     pinyin: 'tóu',     categoryId: 'cat5' },
+{ id: 'f24', word: '耳朵', english: 'Ear',      pinyin: 'ěrduo',   categoryId: 'cat5' },
+{ id: 'f25', word: '眼睛', english: 'Eye',      pinyin: 'yǎnjing', categoryId: 'cat5' },
+
 ];
 
 // Default sets
@@ -67,8 +77,18 @@ export const FlashcardProvider = ({ children }) => {
         setCategories(savedCategories ? JSON.parse(savedCategories) : defaultCategories);
         
         // Load flashcards or use defaults if none found
-        const savedFlashcards = localStorage.getItem('flashcards');
-        setFlashcards(savedFlashcards ? JSON.parse(savedFlashcards) : defaultFlashcards);
+const savedFlashcards = localStorage.getItem('flashcards');
+let loadedFlashcards = savedFlashcards ? JSON.parse(savedFlashcards) : defaultFlashcards;
+
+// Ensure english & pinyin fields exist
+loadedFlashcards = loadedFlashcards.map(fc => ({
+  english: '',
+  pinyin: '',
+  ...fc,
+}));
+
+setFlashcards(loadedFlashcards);
+
         
         // Load sets or use defaults if none found
         const savedSets = localStorage.getItem('sets');
@@ -146,12 +166,14 @@ export const FlashcardProvider = ({ children }) => {
   };
   
   // Flashcard CRUD operations
-  const addFlashcard = (word, categoryId) => {
-    const newFlashcard = {
-      id: `f${Date.now()}`,
-      word,
-      categoryId
-    };
+  const addFlashcard = (word, categoryId, english = '', pinyin = '') => {
+const newFlashcard = {
+id: `f${Date.now()}`,
+word,
+english,
+pinyin,
+categoryId,
+};
     setFlashcards([...flashcards, newFlashcard]);
     return newFlashcard;
   };

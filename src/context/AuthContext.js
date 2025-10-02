@@ -1,5 +1,6 @@
 // src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 // Create the auth context
 const AuthContext = createContext();
@@ -10,118 +11,199 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Check if user is logged in on initial load
+  // Set up auth state listener
   useEffect(() => {
-    const storedUser = localStorage.getItem('sprouttieUser');
-    if (storedUser) {
+    // Get initial session
+    const getInitialSession = async () => {
       try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Error parsing stored user data', e);
-        localStorage.removeItem('sprouttieUser');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+          setError(error.message);
+        } else {
+          setCurrentUser(session?.user ?? null);
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        setError('Authentication initialization failed');
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        setCurrentUser(session?.user ?? null);
+        setLoading(false);
+        setError('');
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Mock signup function - replace with actual API call in production
+  // Signup function with profile creation
   const signup = async (email, password, name) => {
     try {
       setLoading(true);
-      // This is a placeholder for your actual API call
-      // In production, this would be a call to your Python backend
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For development: Create a mock user
-      const newUser = {
-        id: `user_${Date.now()}`,
-        email,
-        name,
-        plan: 'free', // Default plan
-        createdAt: new Date().toISOString()
-      };
-      
-      // Store user in localStorage (temporary - will be replaced with proper session/token)
-      localStorage.setItem('sprouttieUser', JSON.stringify(newUser));
-      setCurrentUser(newUser);
       setError('');
-      return newUser;
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      // Create profile entry if user was created successfully
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            plan: 'free',
+            subscription_status: 'free',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          // Don't throw error here as user is already created in auth
+          // The profile might already exist or will be created later
+        }
+      }
+
+      return data;
     } catch (err) {
-      setError(err.message || 'Failed to sign up');
-      throw err;
+      const errorMessage = err.message || 'Failed to sign up';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock login function - replace with actual API call in production
+  // Login function
   const login = async (email, password) => {
     try {
       setLoading(true);
-      // This is a placeholder for your actual API call
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For development: Create a mock user response
-      // In production, this would be the response from your backend
-      const user = {
-        id: `user_${Date.now()}`,
-        email,
-        name: email.split('@')[0], // Simple mock name based on email
-        plan: 'free',
-        createdAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('sprouttieUser', JSON.stringify(user));
-      setCurrentUser(user);
       setError('');
-      return user;
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Check if profile exists, create if not
+      if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Error checking profile:', profileError);
+        } else if (!profile) {
+          // Create profile if it doesn't exist
+          const { error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              email: data.user.email,
+              plan: 'free',
+              subscription_status: 'free',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+
+          if (createError) {
+            console.error('Error creating profile on login:', createError);
+          }
+        }
+      }
+
+      return data;
     } catch (err) {
-      setError(err.message || 'Failed to log in');
-      throw err;
+      const errorMessage = err.message || 'Failed to log in';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Google sign in function - replace with actual implementation
+  // Google sign in function
   const googleSignIn = async () => {
     try {
       setLoading(true);
-      // This is a placeholder for your actual Google OAuth implementation
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock Google user data
-      const googleUser = {
-        id: `google_user_${Date.now()}`,
-        email: 'google_user@example.com',
-        name: 'Google User',
-        plan: 'free',
-        provider: 'google',
-        createdAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('sprouttieUser', JSON.stringify(googleUser));
-      setCurrentUser(googleUser);
       setError('');
-      return googleUser;
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/profile`
+        }
+      });
+
+      if (error) throw error;
+      return data;
     } catch (err) {
-      setError(err.message || 'Failed to sign in with Google');
-      throw err;
+      const errorMessage = err.message || 'Failed to sign in with Google';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   // Logout function
-  const logout = () => {
-    localStorage.removeItem('sprouttieUser');
-    setCurrentUser(null);
+  const logout = async () => {
+    try {
+      setError('');
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to log out';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Helper function to get user profile data
+  const getUserProfile = async () => {
+    if (!currentUser) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error in getUserProfile:', err);
+      return null;
+    }
   };
 
   const value = {
@@ -132,6 +214,7 @@ export const AuthProvider = ({ children }) => {
     login,
     googleSignIn,
     logout,
+    getUserProfile,
     setError
   };
 
@@ -144,5 +227,9 @@ export const AuthProvider = ({ children }) => {
 
 // Custom hook to use the auth context
 export const useAuth = () => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

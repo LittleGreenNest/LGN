@@ -24,48 +24,52 @@ const WaitlistForm = ({ onClose }) => {
   const isEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(val).toLowerCase());
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (loading) return;
+  e.preventDefault();
+  if (loading) return;
 
-    // bot trap
-    if (botField) return;
+  // bot trap
+  if (botField) return;
 
-    if (!isEmail(email)) {
-      toast.error('Please enter a valid email.');
-      return;
+  if (!isEmail(email)) {
+    toast.error('Please enter a valid email.');
+    return;
+  }
+
+  setLoading(true);
+  const source = 'plans_modal';
+
+  try {
+    // 1) Upsert waitlist row (rename error -> dbError)
+    const { error: dbError } = await supabase
+      .from('waitlist')
+      .upsert([{ email, source, consent, ...utm }], { onConflict: 'email', ignoreDuplicates: false });
+    if (dbError) throw dbError;
+
+    // 2) Fire the email via Supabase Edge Function (Resend)
+    // Use a different alias (edgeError) and call ONLY ONCE
+    const { error: edgeError } = await supabase.functions.invoke('sendWaitlistEmail', {
+      body: { email, source, utm, consent }
+    });
+    if (edgeError) throw edgeError;
+
+    toast.success('You’re on the waitlist! 🎉');
+    setEmail('');
+
+    // Tracking
+    if (window.fbq) {
+      window.fbq('track', 'Lead', { content_name: 'Waitlist Signup', source, ...utm });
     }
-
-    setLoading(true);
-    const source = 'plans_modal';
-
-    try {
-      // Upsert so repeat signups don’t throw an error
-      const { error } = await supabase
-        .from('waitlist')
-        .upsert(
-          [{ email, source, consent, ...utm }],
-          { onConflict: 'email', ignoreDuplicates: false }
-        );
-
-      if (error) throw error;
-
-      toast.success('You’re on the waitlist! 🎉');
-      setEmail('');
-
-      // Tracking
-      if (window.fbq) {
-        window.fbq('track', 'Lead', { content_name: 'Waitlist Signup', source, ...utm });
-      }
-      if (window.gtag) {
-        window.gtag('event', 'waitlist_signup', { event_category: 'engagement', event_label: source, ...utm });
-      }
-    } catch (err) {
-      console.error('Waitlist error:', err);
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
+    if (window.gtag) {
+      window.gtag('event', 'waitlist_signup', { event_category: 'engagement', event_label: source, ...utm });
     }
-  };
+  } catch (err) {
+    console.error('Waitlist error:', err);
+    toast.error(err?.message || 'Something went wrong. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="waitlist-modal" role="dialog" aria-modal="true" aria-label="Join Pro Plan Waitlist">

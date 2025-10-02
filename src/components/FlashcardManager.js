@@ -1,6 +1,5 @@
 // components/FlashcardManager.js
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';  // make sure this path is correct
+import React, { useState } from 'react';
 import { useFlashcards } from '../context/FlashcardContext';
 import CSVImport from './CSVImport';
 import PrintFlashcards from './PrintFlashcards';
@@ -17,19 +16,6 @@ const FlashcardManager = () => {
     deleteFlashcard
   } = useFlashcards();
   
-  
-  const [plan, setPlan] = useState(null);
-  const [loadingPlan, setLoadingPlan] = useState(true);
-
-  useEffect(() => {
-    const fetchUserPlan = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setPlan(user?.user_metadata?.plan || 'free');
-      setLoadingPlan(false);
-    };
-    fetchUserPlan();
-  }, []);
-
   // UI state
   const [activeTab, setActiveTab] = useState('categories');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -39,11 +25,16 @@ const FlashcardManager = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newFlashcardWord, setNewFlashcardWord] = useState('');
   const [newFlashcardCategory, setNewFlashcardCategory] = useState('');
+const [newFlashcardEnglish, setNewFlashcardEnglish] = useState('');
+const [newFlashcardPinyin, setNewFlashcardPinyin] = useState('');
   const [editCategoryId, setEditCategoryId] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState('');
   const [editFlashcardId, setEditFlashcardId] = useState(null);
   const [editFlashcardWord, setEditFlashcardWord] = useState('');
   const [editFlashcardCategory, setEditFlashcardCategory] = useState('');
+const [editFlashcardEnglish, setEditFlashcardEnglish] = useState('');
+const [editFlashcardPinyin, setEditFlashcardPinyin] = useState('');
+
   
   // Message state
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -184,25 +175,33 @@ const FlashcardManager = () => {
     e.preventDefault();
     if (!newFlashcardWord.trim() || !newFlashcardCategory) return;
     
-    addFlashcard(newFlashcardWord, newFlashcardCategory);
+    addFlashcard(newFlashcardWord, newFlashcardCategory, newFlashcardEnglish, newFlashcardPinyin);
     setNewFlashcardWord('');
+setNewFlashcardEnglish('');
+setNewFlashcardPinyin('');
+
     showMessage('Flashcard added successfully');
   };
   
-  const handleEditFlashcard = (flashcard) => {
-    setEditFlashcardId(flashcard.id);
-    setEditFlashcardWord(flashcard.word);
-    setEditFlashcardCategory(flashcard.categoryId);
-  };
+ const handleEditFlashcard = (flashcard) => {
+  setEditFlashcardId(flashcard.id);
+  setEditFlashcardWord(flashcard.word);
+  setEditFlashcardCategory(flashcard.categoryId);
+  setEditFlashcardEnglish(flashcard.english || '');
+  setEditFlashcardPinyin(flashcard.pinyin || '');
+};
   
   const handleUpdateFlashcard = (e) => {
     e.preventDefault();
     if (!editFlashcardWord.trim() || !editFlashcardCategory || !editFlashcardId) return;
     
-    updateFlashcard(editFlashcardId, {
-      word: editFlashcardWord,
-      categoryId: editFlashcardCategory
-    });
+   updateFlashcard(editFlashcardId, {
+  word: editFlashcardWord,
+  english: editFlashcardEnglish,
+  pinyin: editFlashcardPinyin,
+  categoryId: editFlashcardCategory
+});
+
     
     setEditFlashcardId(null);
     setEditFlashcardWord('');
@@ -323,8 +322,8 @@ const FlashcardManager = () => {
               />
               <button 
                 type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-              >
+                className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600"
+>
                 Add
               </button>
             </form>
@@ -400,7 +399,10 @@ const FlashcardManager = () => {
             <h3 className="font-medium mb-3">Add New Flashcard</h3>
             <form onSubmit={handleAddFlashcard} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium mb-1">Word</label>
+                <label className="block text-sm font-medium mb-1">
+  Flashcard Word <span className="text-gray-500 text-xs">(input any English or Chinese word of your choice)</span>
+</label>
+
                 <input
                   type="text"
                   placeholder="Flashcard word"
@@ -410,7 +412,30 @@ const FlashcardManager = () => {
                   required
                 />
               </div>
-              
+              <div>
+<label className="block text-sm font-medium mb-1">
+  English <span className="text-gray-500 text-xs">(for the back of the card, use with Chinese words)</span>
+</label>  <input
+    type="text"
+    placeholder="English word"
+    className="w-full border rounded-md px-3 py-2"
+    value={newFlashcardEnglish}
+    onChange={(e) => setNewFlashcardEnglish(e.target.value)}
+  />
+</div>
+
+<div>
+<label className="block text-sm font-medium mb-1">
+  Pinyin <span className="text-gray-500 text-xs">(for the back of the card, use with Chinese words)</span>
+</label>
+  <input
+    type="text"
+    placeholder="Pinyin"
+    className="w-full border rounded-md px-3 py-2"
+    value={newFlashcardPinyin}
+    onChange={(e) => setNewFlashcardPinyin(e.target.value)}
+  />
+</div>
               <div>
                 <label className="block text-sm font-medium mb-1">Category</label>
                 <select
@@ -430,8 +455,8 @@ const FlashcardManager = () => {
               
               <button 
                 type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-              >
+                className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600"
+>
                 Add Flashcard
               </button>
             </form>
@@ -480,6 +505,31 @@ const FlashcardManager = () => {
                                 onChange={(e) => setEditFlashcardWord(e.target.value)}
                                 required
                               />
+{/* English field for back of CN cards */}
+<label className="block text-sm font-medium mb-1 mt-4">
+  English <span className="text-gray-500 text-xs">(for the back of the card, use with Chinese words)</span>
+</label>
+<input
+  type="text"
+  value={editFlashcardEnglish}
+  onChange={(e) => setEditFlashcardEnglish(e.target.value)}
+  placeholder="English meaning"
+  className="w-full border rounded-md px-3 py-2"
+/>
+
+{/* Pinyin field for back of CN cards */}
+<label className="block text-sm font-medium mb-1 mt-4">
+  Pinyin <span className="text-gray-500 text-xs">(for the back of the card, use with Chinese words)</span>
+</label>
+<input
+  type="text"
+  value={editFlashcardPinyin}
+  onChange={(e) => setEditFlashcardPinyin(e.target.value)}
+  placeholder="Pinyin"
+  className="w-full border rounded-md px-3 py-2"
+/>
+
+
                             </div>
                             
                             <div>
@@ -551,30 +601,9 @@ const FlashcardManager = () => {
         </div>
       )}
       
-{/* Print Flashcards Tab */}
+      {/* Print Flashcards Tab */}
       {activeTab === 'print-flashcards' && (
-        <div className="relative">
-          {!loadingPlan && plan !== 'pdf' && (
-            <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-8">
-              <div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10 mb-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c.83 0 1.5-.67 1.5-1.5S12.83 8 12 8s-1.5.67-1.5 1.5S11.17 11 12 11zm0 0v4m-6 4h12a2 2 0 002-2v-5a2 2 0 00-2-2h-3.28a2 2 0 01-1.44-.59l-1.41-1.41a2 2 0 00-1.44-.59H6a2 2 0 00-2 2v7a2 2 0 002 2z" />
-                </svg>
-                <h2 className="text-xl font-semibold mb-2">Upgrade to download PDFs</h2>
-                <p className="mb-4 text-gray-600">This feature is available on the PDF plan</p>
-                <button
-                  onClick={() => window.location.href = '/plans'}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  View Plans
-                </button>
-              </div>
-            </div>
-          )}
-          <div className={!loadingPlan && plan !== 'pdf' ? 'pointer-events-none opacity-40' : ''}>
-            <PrintFlashcards />
-          </div>
-        </div>
+        <PrintFlashcards />
       )}
     </div>
   );

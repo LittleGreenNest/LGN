@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
 import PDFSuccess from './pdf-success';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 
 // Context Providers
@@ -77,9 +78,6 @@ const AppContent = () => {
   }
 
   // Redirect to login if not authenticated
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
 
   return (
     <div className="App max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen">
@@ -127,16 +125,27 @@ const AppContent = () => {
           History
         </button>
       </div>
-      
-      {/* Active Tab Content */}
+                  {/* Active Tab Content */}
       <Routes>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/daily-tracking" element={<DailyTracker />} />
-        <Route path="/manage-flashcards" element={<FlashcardManager />} />
-        <Route path="/history" element={<HistoryView />} />
-        <Route path="/profile" element={<Profile />} />
+        {/* Protected routes (must be logged in) */}
+        <Route element={<ProtectedRoute />}>
+          {/* default when landing on AppContent */}
+          <Route index element={<Navigate to="/dashboard" replace />} />
+
+          {/* tab pages */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/daily-tracking" element={<DailyTracker />} />
+          <Route path="/manage-flashcards" element={<FlashcardManager />} />
+          <Route path="/history" element={<HistoryView />} />
+
+          {/* profile page */}
+          <Route path="/profile" element={<Profile />} />
+        </Route>
+
+        {/* fallback for anything else under AppContent */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+
     </div>
   );
 };
