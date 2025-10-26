@@ -1,6 +1,26 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "id": "/?source=pwa",
+  "short_name": "Sprouttie",
+  "name": "Sprouttie — Flashcards & Weekly Review",
+  "description": "Sprouttie helps busy parents prep, print, and track science-based flashcards with gentle weekly reviews.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/?utm_source=homescreen",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "portrait-primary",
+  "theme_color": "#34C759",
+  "background_color": "#FFFFFF",
+  "categories": [
+    "education",
+    "kids-and-family",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,16 +30,43 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "shortcuts": [
+    {
+      "name": "Open Flashcards",
+      "short_name": "Flashcards",
+      "url": "/flashcards?utm_source=shortcut",
+      "description": "Jump into your current decks."
+    },
+    {
+      "name": "Weekly Review",
+      "short_name": "Review",
+      "url": "/weekly-review?utm_source=shortcut",
+      "description": "See what to prep for Saturday."
+    },
+    {
+      "name": "Print Center",
+      "short_name": "Print",
+      "url": "/print?utm_source=shortcut",
+      "description": "Generate PDFs and print."
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "prefer_related_applications": false
 }

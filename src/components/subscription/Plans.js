@@ -5,12 +5,14 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../supabaseClient';
 import WaitlistForm from '../WaitlistForm';
 
-const SERVER_URL =
-  process.env.REACT_APP_BACKEND_URL ||
-  (window.location.hostname === 'localhost' ? 'http://localhost:5001' : '');
+// Determine whether we’re running locally or in production
+const isLocal = window.location.hostname === 'localhost';
 
+// In local dev, let CRA proxy requests (no explicit base URL needed)
+const SERVER_URL = isLocal ? '' : process.env.REACT_APP_SERVER_URL;
 
 console.log('SERVER_URL →', SERVER_URL);
+
 
 const plans = [
   {
@@ -100,44 +102,57 @@ export default function Plans() {
   }, [showWaitlist, showFreeConfirm]);
 
   // Start Stripe Checkout - require auth for paid plans
-  const handleSubscribe = async (plan) => {
-    if (!currentUser) {
-      alert('Please log in to subscribe to a plan.');
-      navigate('/login');
-      return;
+const handleSubscribe = async (plan) => {
+  if (!currentUser) {
+    alert('Please log in to subscribe to a plan.');
+    navigate('/login');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const identifiers = { userId: currentUser.id, email: currentUser.email };
+    console.log('Creating checkout session for:', { plan, ...identifiers });
+
+    // ✅ NEW: get Supabase session (JWT)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Missing auth token');
+
+    // ⬇️ REPLACE your existing fetch(...) with this:
+    const res = await fetch(`${SERVER_URL}/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // ✅ IMPORTANT: send JWT so server can verify userId
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        plan,
+        billingCycle,                // keep your current billingCycle state
+        userId: currentUser.id,      // server will verify this matches the JWT
+        email: currentUser.email,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || `HTTP ${res.status}`);
     }
 
-    setLoading(true);
-    try {
-      const identifiers = { userId: currentUser.id, email: currentUser.email };
-
-      console.log('Creating checkout session for:', { plan, ...identifiers });
-
-      const res = await fetch(`${SERVER_URL}/create-checkout-session`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ plan, userId: currentUser.id, email: currentUser.email })
-});
-
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `HTTP ${res.status}`);
-      }
-      
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error(data.error || 'No checkout URL returned');
-      }
-    } catch (e) {
-      console.error('Subscription error:', e);
-      alert(`Failed to start subscription: ${e.message}`);
-    } finally {
-      setLoading(false);
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || 'No checkout URL returned');
     }
-  };
+  } catch (e) {
+    console.error('Subscription error:', e);
+    alert(`Failed to start subscription: ${e.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Handle downgrade to free plan
   const handleDowngradeToFree = async () => {

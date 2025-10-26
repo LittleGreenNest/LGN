@@ -1,7 +1,7 @@
 {
   "name": "little-green-nest",
   "version": "1.0.0",
-  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
+  "description": "This project was bootstrapped with Create React App.",
   "main": "src/index.js",
   "dependencies": {
     "@supabase/supabase-js": "^2.50.5",
@@ -23,13 +23,13 @@
     "react-scripts": "^5.0.1",
     "react-toastify": "^11.0.5",
     "resend": "^6.1.1",
-    "serve": "^14.2.5",
     "tailwindcss": "^3.4.1",
     "web-vitals": "^4.2.4"
   },
   "scripts": {
+    "start": "WDS_ALLOWED_HOSTS=all react-scripts start",
     "build": "react-scripts build",
-    "start": "serve -s build -l $PORT",
+    "serve": "serve -s build -l $PORT",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -54,5 +54,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "proxy": "https://sprouttie-server-1.onrender.com"
+  "proxy": "http://localhost:5001"
 }
