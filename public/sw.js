@@ -1,7 +1,7 @@
 /* global self, caches, fetch */
-const CACHE = "sprouttie-v2"; // bump version
+const CACHE = "sprouttie-v2";           // bump version
 const OFFLINE_URL = "/offline.html";
-const BYPASS_PATHS = new Set(["/sw.js"]); // do not intercept the SW file itself
+const BYPASS = new Set(["/sw.js"]);      // don't intercept SW itself
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
@@ -28,21 +28,21 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // ✅ Do not handle the service worker file
-  if (BYPASS_PATHS.has(url.pathname)) return;
+  // let the SW file bypass the handler so it can update
+  if (BYPASS.has(url.pathname)) return;
 
-  // Network-first for APIs and non-GET
+  // network-first for API and non-GET
   if (url.pathname.startsWith("/api/") || event.request.method !== "GET") {
     event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE_URL)));
     return;
   }
 
-  // App shell: network → cache → offline
+  // app shell strategy
   event.respondWith(
     fetch(event.request)
       .then((res) => {
         const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(event.request, copy));
+        caches.open(CACHE).then(c => c.put(event.request, copy));
         return res;
       })
       .catch(async () => {
