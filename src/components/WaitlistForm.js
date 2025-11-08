@@ -105,7 +105,7 @@ const WaitlistForm = ({ onClose }) => {
               checked={consent}
               onChange={(e) => setConsent(e.target.checked)}
             />
-            <span>Email me Pro Sprout updates</span>
+            <span>I want to receive updates from Sprouttie via email.</span>
           </label>
 
           <button
