@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import './App.css';
 import PDFSuccess from './pdf-success';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ResetPassword from "./ResetPassword";
 
 
 // Context Providers
@@ -165,6 +166,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/plans" element={<Plans />} />
 <Route path="/pdf-success" element={<PDFSuccess />} />
+<Route path="/reset-password" element={<ResetPassword />} />
 
               
               {/* Protected routes */}

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
+import ModeMismatchModal from "./ModeMismatchModal";
+
 
 // Env / server URL (CRA proxy in dev)
 const isLocal = window.location.hostname === 'localhost';
@@ -13,6 +15,8 @@ export default function Profile() {
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
+const [showModeMismatch, setShowModeMismatch] = useState(false);
+
 
   const userId = currentUser?.id || null;
 
@@ -59,7 +63,6 @@ const isCancelled = profile?.cancel_at_period_end;
   async function openBillingPortal() {
   if (!userId) return;
   try {
-    // ✅ NEW: get JWT
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) throw new Error('Missing auth token');
 
@@ -67,18 +70,25 @@ const isCancelled = profile?.cancel_at_period_end;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // ✅ IMPORTANT: send JWT so server can verify user
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ userId, email: currentUser?.email }),
     });
 
     const data = await resp.json();
-    if (data?.url) {
+
+    if (resp.ok && data?.url) {
       window.location.href = data.url;
-    } else {
-      alert(data?.error || 'Unable to open billing portal');
+      return;
     }
+
+    if (resp.status === 409 && data?.code === 'MODE_MISMATCH') {
+      // 🚨 Instead of alert, open the modal
+      setShowModeMismatch(true);
+      return;
+    }
+
+    alert(data?.error || 'Unable to open billing portal');
   } catch (e) {
     alert('Unable to open billing portal');
   }
@@ -109,6 +119,15 @@ const isCancelled = profile?.cancel_at_period_end;
     ? new Date(currentUser.created_at).toLocaleDateString()
     : '—'}
 </span>
+<ModeMismatchModal
+  show={showModeMismatch}
+  onClose={() => setShowModeMismatch(false)}
+  onReactivate={() => {
+    setShowModeMismatch(false);
+    window.location.href = '/plans'; // 🔁 change to your live checkout URL if you prefer
+  }}
+/>
+
           </div>
           <div className="pt-2">
             <button

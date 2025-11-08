@@ -21,44 +21,16 @@
     "kids-and-family",
     "productivity"
   ],
-  "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
-    }
+ "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    {
-      "name": "Open Flashcards",
-      "short_name": "Flashcards",
-      "url": "/flashcards?utm_source=shortcut",
-      "description": "Jump into your current decks."
-    },
-    {
-      "name": "Weekly Review",
-      "short_name": "Review",
-      "url": "/weekly-review?utm_source=shortcut",
-      "description": "See what to prep for Saturday."
-    },
-    {
-      "name": "Print Center",
-      "short_name": "Print",
-      "url": "/print?utm_source=shortcut",
-      "description": "Generate PDFs and print."
-    }
+    { "name": "Open Flashcards", "url": "/flashcards" },
+    { "name": "Weekly Review", "url": "/weekly-review" },
+    { "name": "Print Center", "url": "/print" }
   ],
   "screenshots": [
     {
