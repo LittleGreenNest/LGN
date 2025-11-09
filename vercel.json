@@ -7,5 +7,8 @@
         { "key": "Service-Worker-Allowed", "value": "/" }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/sw.js", "destination": "/sw.js" }
   ]
 }
