@@ -1,6 +1,7 @@
 /* global self, caches, fetch */
-const CACHE = "sprouttie-v2";           // bump version
-const OFFLINE_URL = "/offline.html";
+const SW_VERSION = "sprouttie-v2";   // <— bump this every deploy
+const CACHE = SW_VERSION;            // keep using SW_VERSION for cache name
+console.log("[SW] loaded", SW_VERSION);const OFFLINE_URL = "/offline.html";
 const BYPASS = new Set(["/sw.js"]);      // don't intercept SW itself
 
 self.addEventListener("install", (event) => {

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Sprouttie",
+  "short_name": "Sprouttie",
+  "description": "Flashcards and pronunciation for busy parents.",
+  "version": "1.0.0",
+  "action": {
+    "default_title": "Open Sprouttie"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "permissions": ["tabs"]
+}
