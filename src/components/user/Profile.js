@@ -28,7 +28,7 @@ const [showModeMismatch, setShowModeMismatch] = useState(false);
     }
   }, [profile?.plan]);
 
-const isCancelled = profile?.cancel_at_period_end;
+const setIsCancelled = profile?.cancel_at_period_end;
 
   const periodEnd = profile?.current_period_end
     ? new Date(profile.current_period_end)

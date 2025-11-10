@@ -1,6 +1,7 @@
 // components/DailyTracker.js
 import React, { useState, useEffect } from 'react';
 import { useFlashcards } from '../context/FlashcardContext';
+import { deleteFlashcard } from "@/lib/flashcards";
 
 const DailyTracker = () => {
   const { sets, categories, flashcards, getFlashcardsForSet, saveTrackingData, getTrackingData, addFlashcard, deleteFlashcard, updateSetFlashcards } = useFlashcards();

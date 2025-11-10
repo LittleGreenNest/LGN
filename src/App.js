@@ -48,7 +48,7 @@ export const fetchUserPlan = async (userEmail) => {
 
 // AppContent component to handle tab navigation after authentication
 const AppContent = () => {
-  const { currentUser, loading } = useAuth();
+  const { loading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
   const location = useLocation();

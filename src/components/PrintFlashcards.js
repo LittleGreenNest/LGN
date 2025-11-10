@@ -61,7 +61,7 @@ const [previewSide, setPreviewSide] = useState('front'); // 'front' | 'back'
   const [previewPages, setPreviewPages] = useState([]);
 
 // load CJK font for jsPDF
-const [fontReady, setFontReady] = useState(false);
+const [, setFontReady] = useState(false);
 
 useEffect(() => {
   let cancelled = false;
