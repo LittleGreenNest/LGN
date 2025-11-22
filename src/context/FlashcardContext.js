@@ -230,10 +230,11 @@ export const FlashcardProvider = ({ children }) => {
       );
       return realCard;
     } catch (err) {
-      console.error('[Flashcards] Error inserting into Supabase, keeping local-only card:', err);
-      // keep temp card as-is
-      return tempCard;
-    }
+  console.error('[Flashcards] Error inserting into Supabase, keeping local-only card:', err);
+  // keep temp card as-is
+  return tempCard;
+}
+
   };
 
   const updateFlashcard = async (id, updates) => {

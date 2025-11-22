@@ -1,14 +1,20 @@
-// src/supabaseClient.js
 import { createClient } from '@supabase/supabase-js';
 
-// CRA uses REACT_APP_* at build time
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+// Support both CRA and Vite-style envs
+const supabaseUrl =
+  process.env.REACT_APP_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL;
+
+const supabaseAnonKey =
+  process.env.REACT_APP_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  // helps catch missing envs during build
-  // eslint-disable-next-line no-console
-  console.warn('[Supabase] Missing REACT_APP_SUPABASE_URL / REACT_APP_SUPABASE_ANON_KEY');
+  console.error(
+    '[Supabase] Missing Supabase URL or anon key. ' +
+      'Check your .env: REACT_APP_SUPABASE_URL / REACT_APP_SUPABASE_ANON_KEY (CRA) ' +
+      'or VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (Vite).'
+  );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
