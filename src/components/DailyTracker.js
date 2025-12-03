@@ -1,4 +1,4 @@
-// components/DailyTracker.js
+// src/components/DailyTracker.js
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFlashcards } from '../context/FlashcardContext';
@@ -10,7 +10,7 @@ import {
 const MAX_WORDS_PER_SET = 5;
 
 const DailyTracker = () => {
-  const { currentUser } = useAuth(); // 👈 use currentUser from AuthContext
+  const { currentUser } = useAuth();
 
   const {
     sets,
@@ -19,7 +19,7 @@ const DailyTracker = () => {
     getFlashcardsForSet,
     addFlashcard,
     updateSetFlashcards,
-    saveTrackingData, // 👈 from FlashcardContext to keep local history in sync
+    saveTrackingData,
   } = useFlashcards();
 
   const today = new Date().toISOString().split('T')[0];
@@ -47,7 +47,7 @@ const DailyTracker = () => {
   // 🔄 Load today's data from Supabase via trackingApi
   // -------------------------------------------------------------
   useEffect(() => {
-    if (!currentUser) return; // prevent loading when logged out
+    if (!currentUser) return;
 
     let isMounted = true;
 
@@ -56,13 +56,11 @@ const DailyTracker = () => {
         const todayData = await getDailyTrackingForDate(today);
         if (!todayData || !isMounted) return;
 
-        // selected_sets is stored as array of ids (string or number)
         const setIds = todayData.selected_sets || [];
         setSelectedSets(
           setIds.map((id) => (typeof id === 'string' ? parseInt(id, 10) : id))
         );
 
-        // set_usage is stored as { setId: count }
         const usage = {};
         Object.entries(todayData.set_usage || {}).forEach(([setId, count]) => {
           usage[parseInt(setId, 10)] = count;
@@ -94,20 +92,19 @@ const DailyTracker = () => {
 
     setSaveStatus('Saving...');
 
+    // IMPORTANT: match trackingApi's expected shape
     const payload = {
-      date: today,
-      selected_sets: selectedSets,
-      set_usage: setUsage,
+      selectedSets,
+      setUsage,
       engagement,
-      time_of_day: timeOfDay,
+      timeOfDay,
       notes,
     };
 
     try {
-      // Save to Supabase via trackingApi (per-user handled there + RLS)
       await saveDailyTrackingForDate(today, payload);
 
-      // Also keep FlashcardContext's local history in sync
+      // keep local history in sync
       saveTrackingData({
         date: today,
         selectedSets,
@@ -153,7 +150,6 @@ const DailyTracker = () => {
       newFlashcardPinyin
     );
 
-    // optionally add this new card to the selected set we are managing
     if (selectedSetForManage) {
       const currentIds =
         sets.find((s) => s.id === selectedSetForManage)?.flashcardIds || [];
@@ -184,7 +180,7 @@ const DailyTracker = () => {
   });
 
   // -------------------------------------------------------------
-  // JSX
+  // JSX (same structure as you have now)
   // -------------------------------------------------------------
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
@@ -446,7 +442,7 @@ const DailyTracker = () => {
             </form>
           )}
 
-          {/* Flashcards list (simple) */}
+          {/* Flashcards list */}
           <div className="mt-3 max-h-64 overflow-y-auto border rounded-md divide-y">
             {filteredFlashcards.map((card) => (
               <div

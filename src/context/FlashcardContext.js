@@ -1,4 +1,4 @@
-// context/FlashcardContext.js
+// src/context/FlashcardContext.js
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +22,7 @@ const defaultSets = [
   { id: 5, name: 'Set 5', flashcardIds: [] },
 ];
 
-// helper: make sure every card has consistent fields (unused now but kept for future)
+// helper kept for future, even if unused right now
 const normalize = (cards) =>
   cards.map((c) => ({
     english: '',
@@ -33,7 +33,6 @@ const normalize = (cards) =>
   }));
 
 export const FlashcardProvider = ({ children }) => {
-  // AuthContext actually exposes `currentUser`, not `user`
   const { currentUser } = useAuth();
   const user = currentUser;
 
@@ -46,7 +45,7 @@ export const FlashcardProvider = ({ children }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        // categories / sets from localStorage (or defaults)
+        // categories / sets / history from localStorage (or defaults)
         const savedCategories = localStorage.getItem('categories');
         setCategories(savedCategories ? JSON.parse(savedCategories) : defaultCategories);
 
@@ -65,11 +64,11 @@ export const FlashcardProvider = ({ children }) => {
           return;
         }
 
-        // Load only this user's flashcards from Supabase
+        // Load only this user's flashcards from Supabase (RLS-friendly)
         const { data, error } = await supabase
           .from('flashcards')
           .select('*')
-          .eq('user_id', user.id) // filter by current user (RLS-friendly)
+          .eq('user_id', user.id)
           .order('created_at', { ascending: true });
 
         if (error) {
@@ -162,16 +161,6 @@ export const FlashcardProvider = ({ children }) => {
   const addFlashcard = async (word, categoryId, english = '', pinyin = '', options = {}) => {
     const { cardType = 'word', phraseGroup = '' } = options;
 
-    console.log('[addFlashcard] called with', {
-      word,
-      categoryId,
-      english,
-      pinyin,
-      cardType,
-      phraseGroup,
-    });
-
-    // optimistic local add first so UI always updates
     const tempId = `f${Date.now()}`;
     const tempCard = {
       id: tempId,
@@ -194,7 +183,7 @@ export const FlashcardProvider = ({ children }) => {
       const { data, error } = await supabase
         .from('flashcards')
         .insert({
-          user_id: user.id, // RLS: associate with owner
+          user_id: user.id,
           word,
           english,
           pinyin,
@@ -204,8 +193,6 @@ export const FlashcardProvider = ({ children }) => {
         })
         .select()
         .single();
-
-      console.log('[addFlashcard] Supabase result', { data, error });
 
       if (error) throw error;
 
@@ -219,7 +206,6 @@ export const FlashcardProvider = ({ children }) => {
         phraseGroup: data.phrase_group || '',
       };
 
-      // replace temp card with real one
       setFlashcards((prev) => prev.map((c) => (c.id === tempId ? realCard : c)));
       return realCard;
     } catch (err) {
@@ -227,7 +213,7 @@ export const FlashcardProvider = ({ children }) => {
         '[Flashcards] Error inserting into Supabase, keeping local-only card:',
         err
       );
-      // keep temp card as-is
+      // keep temp card in local state
       return tempCard;
     }
   };
@@ -239,7 +225,6 @@ export const FlashcardProvider = ({ children }) => {
     );
 
     const isUuid = typeof id === 'string' && id.includes('-');
-    // If this is a local-only card or user not logged in, no Supabase update
     if (!isUuid || !user) return;
 
     try {
@@ -257,7 +242,7 @@ export const FlashcardProvider = ({ children }) => {
         .from('flashcards')
         .update(payload)
         .eq('id', id)
-        .eq('user_id', user.id); // extra safety with RLS
+        .eq('user_id', user.id);
 
       if (error) throw error;
     } catch (err) {
@@ -266,7 +251,6 @@ export const FlashcardProvider = ({ children }) => {
   };
 
   const deleteFlashcard = async (id) => {
-    // Update sets + local array first
     setSets((prevSets) =>
       prevSets.map((s) => ({
         ...s,
@@ -283,7 +267,7 @@ export const FlashcardProvider = ({ children }) => {
         .from('flashcards')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id); // extra safety with RLS
+        .eq('user_id', user.id);
 
       if (error) throw error;
     } catch (err) {
@@ -309,7 +293,7 @@ export const FlashcardProvider = ({ children }) => {
       .filter(Boolean);
   };
 
-  // ---------- DAILY TRACKING (now tagged per-user) ----------
+  // ---------- DAILY TRACKING (local side, tagged per-user when possible) ----------
   const saveTrackingData = (data) => {
     const userId = user?.id || data.userId || data.user_id || null;
     const record = userId ? { ...data, userId } : { ...data };
@@ -317,7 +301,6 @@ export const FlashcardProvider = ({ children }) => {
     setHistory((prev) => {
       let base = prev;
 
-      // If this record is tied to a user, keep only that user's records
       if (userId) {
         base = prev.filter(
           (h) =>
@@ -340,7 +323,6 @@ export const FlashcardProvider = ({ children }) => {
   const getTrackingData = (date) => {
     const userId = user?.id;
 
-    // If no user, just return first matching date (old single-user behavior)
     if (!userId) {
       return history.find((h) => h.date === date) || null;
     }
@@ -352,7 +334,7 @@ export const FlashcardProvider = ({ children }) => {
           (
             (h.userId && h.userId === userId) ||
             (h.user_id && h.user_id === userId) ||
-            (!h.userId && !h.user_id) // backward compat: old entries without user info
+            (!h.userId && !h.user_id) // backward compat
           )
       ) || null
     );
@@ -367,7 +349,7 @@ export const FlashcardProvider = ({ children }) => {
           (h) =>
             (h.userId && h.userId === userId) ||
             (h.user_id && h.user_id === userId) ||
-            (!h.userId && !h.user_id) // backward compat
+            (!h.userId && !h.user_id)
         )
       : history;
 
@@ -388,6 +370,7 @@ export const FlashcardProvider = ({ children }) => {
       });
     });
 
+    // you can expand this later (averageEngagement etc.)
     return stats;
   };
 
