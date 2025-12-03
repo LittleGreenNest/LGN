@@ -1,55 +1,90 @@
 // lib/trackingApi.js
 import { supabase } from '../supabaseClient';
 
+// Helper: get the logged-in user
+async function getUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error('[trackingApi] getUser error:', error);
+    return null;
+  }
+
+  return user;
+}
+
 // Get tracking row for a specific date (YYYY-MM-DD)
-// Returns null if nothing saved yet.
 export async function getDailyTrackingForDate(date) {
+  const user = await getUser();
+  if (!user) return null;
+
   const { data, error } = await supabase
     .from('daily_tracking')
     .select('*')
+    .eq('user_id', user.id) // 👈 filter by user
     .eq('date', date)
-    .limit(1)
     .single();
 
-  // PGRST116 = no rows found
   if (error) {
+    // PGRST116 = "Results contain 0 rows" for .single()
     if (error.code === 'PGRST116') return null;
-    console.error('Error loading daily_tracking:', error);
-    throw error;
+    console.error('[trackingApi] getDailyTrackingForDate error:', error);
+    return null;
   }
 
   return data;
 }
 
-// Upsert tracking row for a specific date
-export async function saveDailyTrackingForDate(payload) {
-  const { error } = await supabase
+// Save or update a row for a date
+export async function saveDailyTrackingForDate(date, payload) {
+  const user = await getUser();
+  if (!user) return;
+
+  const row = {
+    user_id: user.id, // 👈 attach user for RLS
+    date,
+    selected_sets: payload.selectedSets ?? [],
+    set_usage: payload.setUsage ?? {},
+    engagement: payload.engagement ?? 0,
+    time_of_day: payload.timeOfDay ?? '',
+    notes: payload.notes ?? '',
+  };
+
+  const { data, error } = await supabase
     .from('daily_tracking')
-    .upsert(payload, { onConflict: 'date' });
+    .upsert(row, {
+      onConflict: 'user_id,date', // 👈 needs a unique index on (user_id, date)
+    })
+    .select()
+    .single();
 
   if (error) {
-    console.error('Error saving daily_tracking:', error);
-    throw error;
+    console.error('[trackingApi] saveDailyTrackingForDate error:', error);
+    return null;
   }
+
+  return data;
 }
 
-// Get a range of days (for Dashboard)
-export async function getDailyTrackingRange(daysBack = 30) {
-  const today = new Date();
-  const start = new Date();
-  start.setDate(today.getDate() - (daysBack - 1));
-
-  const startStr = start.toISOString().split('T')[0];
+// Get multiple days in a range
+export async function getDailyTrackingRange(startStr, endStr) {
+  const user = await getUser();
+  if (!user) return [];
 
   const { data, error } = await supabase
     .from('daily_tracking')
     .select('*')
+    .eq('user_id', user.id) // 👈 filter per-user
     .gte('date', startStr)
+    .lte('date', endStr)
     .order('date', { ascending: true });
 
   if (error) {
-    console.error('Error loading daily_tracking range:', error);
-    throw error;
+    console.error('[trackingApi] getDailyTrackingRange error:', error);
+    return [];
   }
 
   return data || [];

@@ -1,10 +1,11 @@
 // context/FlashcardContext.js
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 const FlashcardContext = createContext();
 
-// ----- Defaults (same as your old version) -----
+// ----- Defaults (categories/sets only – NO default flashcards) -----
 const defaultCategories = [
   { id: 'cat1', name: 'Animals' },
   { id: 'cat2', name: 'Vehicles' },
@@ -13,52 +14,15 @@ const defaultCategories = [
   { id: 'cat5', name: 'Body Parts' },
 ];
 
-const defaultFlashcards = [
-  // Animals
-  { id: 'f1',  word: '狗',   english: 'Dog',     pinyin: 'gǒu',     categoryId: 'cat1' },
-  { id: 'f2',  word: '猫',   english: 'Cat',     pinyin: 'māo',     categoryId: 'cat1' },
-  { id: 'f3',  word: '马',   english: 'Horse',   pinyin: 'mǎ',      categoryId: 'cat1' },
-  { id: 'f4',  word: '狮子', english: 'Lion',    pinyin: 'shīzi',   categoryId: 'cat1' },
-  { id: 'f5',  word: '老虎', english: 'Tiger',   pinyin: 'lǎohǔ',   categoryId: 'cat1' },
-
-  // Vehicles
-  { id: 'f6',  word: '汽车', english: 'Car',      pinyin: 'qìchē',   categoryId: 'cat2' },
-  { id: 'f7',  word: '卡车', english: 'Truck',    pinyin: 'kǎchē',   categoryId: 'cat2' },
-  { id: 'f8',  word: '公共汽车', english: 'Bus',  pinyin: 'gōnggòng qìchē', categoryId: 'cat2' },
-  { id: 'f9',  word: '火车', english: 'Train',    pinyin: 'huǒchē',  categoryId: 'cat2' },
-  { id: 'f10', word: '飞机', english: 'Airplane', pinyin: 'fēijī',   categoryId: 'cat2' },
-
-  // Household
-  { id: 'f11', word: '椅子', english: 'Chair',    pinyin: 'yǐzi',    categoryId: 'cat3' },
-  { id: 'f12', word: '桌子', english: 'Table',    pinyin: 'zhuōzi',  categoryId: 'cat3' },
-  { id: 'f13', word: '床',   english: 'Bed',      pinyin: 'chuáng',  categoryId: 'cat3' },
-  { id: 'f14', word: '灯',   english: 'Lamp',     pinyin: 'dēng',    categoryId: 'cat3' },
-  { id: 'f15', word: '沙发', english: 'Sofa',     pinyin: 'shāfā',   categoryId: 'cat3' },
-
-  // Nature
-  { id: 'f16', word: '树',   english: 'Tree',     pinyin: 'shù',     categoryId: 'cat4' },
-  { id: 'f17', word: '花',   english: 'Flower',   pinyin: 'huā',     categoryId: 'cat4' },
-  { id: 'f18', word: '河流', english: 'River',    pinyin: 'héliú',   categoryId: 'cat4' },
-  { id: 'f19', word: '山',   english: 'Mountain', pinyin: 'shān',    categoryId: 'cat4' },
-  { id: 'f20', word: '太阳', english: 'Sun',      pinyin: 'tàiyáng', categoryId: 'cat4' },
-
-  // Body parts
-  { id: 'f21', word: '手',   english: 'Hand',     pinyin: 'shǒu',    categoryId: 'cat5' },
-  { id: 'f22', word: '脚',   english: 'Foot',     pinyin: 'jiǎo',    categoryId: 'cat5' },
-  { id: 'f23', word: '头',   english: 'Head',     pinyin: 'tóu',     categoryId: 'cat5' },
-  { id: 'f24', word: '耳朵', english: 'Ear',      pinyin: 'ěrduo',   categoryId: 'cat5' },
-  { id: 'f25', word: '眼睛', english: 'Eye',      pinyin: 'yǎnjing', categoryId: 'cat5' },
-];
-
 const defaultSets = [
-  { id: 1, name: 'Set 1', flashcardIds: ['f1', 'f6', 'f11', 'f16', 'f21'] },
-  { id: 2, name: 'Set 2', flashcardIds: ['f2', 'f7', 'f12', 'f17', 'f22'] },
-  { id: 3, name: 'Set 3', flashcardIds: ['f3', 'f8', 'f13', 'f18', 'f23'] },
-  { id: 4, name: 'Set 4', flashcardIds: ['f4', 'f9', 'f14', 'f19', 'f24'] },
-  { id: 5, name: 'Set 5', flashcardIds: ['f5', 'f10', 'f15', 'f20', 'f25'] },
+  { id: 1, name: 'Set 1', flashcardIds: [] },
+  { id: 2, name: 'Set 2', flashcardIds: [] },
+  { id: 3, name: 'Set 3', flashcardIds: [] },
+  { id: 4, name: 'Set 4', flashcardIds: [] },
+  { id: 5, name: 'Set 5', flashcardIds: [] },
 ];
 
-// helper: make sure every card has consistent fields
+// helper: make sure every card has consistent fields (unused now but kept for future)
 const normalize = (cards) =>
   cards.map((c) => ({
     english: '',
@@ -69,6 +33,10 @@ const normalize = (cards) =>
   }));
 
 export const FlashcardProvider = ({ children }) => {
+  // AuthContext actually exposes `currentUser`, not `user`
+  const { currentUser } = useAuth();
+  const user = currentUser;
+
   const [categories, setCategories] = useState([]);
   const [flashcards, setFlashcards] = useState([]);
   const [sets, setSets] = useState([]);
@@ -88,29 +56,42 @@ export const FlashcardProvider = ({ children }) => {
         const savedHistory = localStorage.getItem('history');
         if (savedHistory) setHistory(JSON.parse(savedHistory));
 
-        // try Supabase flashcards
+        // If not signed in yet, just use local flashcards (no Supabase query)
+        if (!user) {
+          console.log('[Flashcards] No user yet, using localStorage only');
+          const saved = localStorage.getItem('flashcards');
+          const fallback = saved ? JSON.parse(saved) : [];
+          setFlashcards(fallback);
+          return;
+        }
+
+        // Load only this user's flashcards from Supabase
         const { data, error } = await supabase
           .from('flashcards')
           .select('*')
+          .eq('user_id', user.id) // filter by current user (RLS-friendly)
           .order('created_at', { ascending: true });
 
         if (error) {
-          console.warn('[Flashcards] Supabase error, falling back to defaults/localStorage:', error.message);
+          console.warn(
+            '[Flashcards] Supabase error, falling back to localStorage:',
+            error.message
+          );
           const saved = localStorage.getItem('flashcards');
-          const fallback = saved ? JSON.parse(saved) : defaultFlashcards;
-          setFlashcards(normalize(fallback));
+          const fallback = saved ? JSON.parse(saved) : [];
+          setFlashcards(fallback);
           return;
         }
 
         if (!data || data.length === 0) {
-          // Table empty -> just show defaults
           const saved = localStorage.getItem('flashcards');
-          const fallback = saved ? JSON.parse(saved) : defaultFlashcards;
-          setFlashcards(normalize(fallback));
+          const fallback = saved ? JSON.parse(saved) : [];
+          setFlashcards(fallback);
           return;
         }
 
-        const fromDb = data.map((row) => ({
+        // map DB rows → UI format
+        const mapped = data.map((row) => ({
           id: row.id,
           word: row.word,
           english: row.english || '',
@@ -120,17 +101,18 @@ export const FlashcardProvider = ({ children }) => {
           phraseGroup: row.phrase_group || '',
         }));
 
-        setFlashcards(normalize(fromDb));
+        setFlashcards(mapped);
+        localStorage.setItem('flashcards', JSON.stringify(mapped));
       } catch (err) {
         console.error('[Flashcards] Unexpected load error:', err);
-        setCategories(defaultCategories);
-        setFlashcards(normalize(defaultFlashcards));
-        setSets(defaultSets);
+        const saved = localStorage.getItem('flashcards');
+        const fallback = saved ? JSON.parse(saved) : [];
+        setFlashcards(fallback);
       }
     };
 
     load();
-  }, []);
+  }, [user]);
 
   // ---------- LOCAL PERSIST ----------
   useEffect(() => {
@@ -140,9 +122,7 @@ export const FlashcardProvider = ({ children }) => {
   }, [categories]);
 
   useEffect(() => {
-    if (flashcards.length) {
-      localStorage.setItem('flashcards', JSON.stringify(flashcards));
-    }
+    localStorage.setItem('flashcards', JSON.stringify(flashcards));
   }, [flashcards]);
 
   useEffect(() => {
@@ -152,9 +132,7 @@ export const FlashcardProvider = ({ children }) => {
   }, [sets]);
 
   useEffect(() => {
-    if (history.length) {
-      localStorage.setItem('history', JSON.stringify(history));
-    }
+    localStorage.setItem('history', JSON.stringify(history));
   }, [history]);
 
   // ---------- CATEGORY CRUD ----------
@@ -171,7 +149,10 @@ export const FlashcardProvider = ({ children }) => {
   const deleteCategory = (id) => {
     const hasCards = flashcards.some((c) => c.categoryId === id);
     if (hasCards) {
-      return { success: false, message: 'Cannot delete category with flashcards. Remove flashcards first.' };
+      return {
+        success: false,
+        message: 'Cannot delete category with flashcards. Remove flashcards first.',
+      };
     }
     setCategories((prev) => prev.filter((c) => c.id !== id));
     return { success: true };
@@ -181,7 +162,14 @@ export const FlashcardProvider = ({ children }) => {
   const addFlashcard = async (word, categoryId, english = '', pinyin = '', options = {}) => {
     const { cardType = 'word', phraseGroup = '' } = options;
 
-    console.log('[addFlashcard] called with', { word, categoryId, english, pinyin, cardType, phraseGroup });
+    console.log('[addFlashcard] called with', {
+      word,
+      categoryId,
+      english,
+      pinyin,
+      cardType,
+      phraseGroup,
+    });
 
     // optimistic local add first so UI always updates
     const tempId = `f${Date.now()}`;
@@ -196,10 +184,17 @@ export const FlashcardProvider = ({ children }) => {
     };
     setFlashcards((prev) => [...prev, tempCard]);
 
+    // If not logged in, keep card local-only (no Supabase / RLS)
+    if (!user) {
+      console.warn('[addFlashcard] No user logged in; keeping flashcard local-only');
+      return tempCard;
+    }
+
     try {
       const { data, error } = await supabase
         .from('flashcards')
         .insert({
+          user_id: user.id, // RLS: associate with owner
           word,
           english,
           pinyin,
@@ -225,25 +220,27 @@ export const FlashcardProvider = ({ children }) => {
       };
 
       // replace temp card with real one
-      setFlashcards((prev) =>
-        prev.map((c) => (c.id === tempId ? realCard : c)),
-      );
+      setFlashcards((prev) => prev.map((c) => (c.id === tempId ? realCard : c)));
       return realCard;
     } catch (err) {
-  console.error('[Flashcards] Error inserting into Supabase, keeping local-only card:', err);
-  // keep temp card as-is
-  return tempCard;
-}
-
+      console.error(
+        '[Flashcards] Error inserting into Supabase, keeping local-only card:',
+        err
+      );
+      // keep temp card as-is
+      return tempCard;
+    }
   };
 
   const updateFlashcard = async (id, updates) => {
+    // Update locally first
     setFlashcards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
     );
 
     const isUuid = typeof id === 'string' && id.includes('-');
-    if (!isUuid) return;
+    // If this is a local-only card or user not logged in, no Supabase update
+    if (!isUuid || !user) return;
 
     try {
       const payload = {
@@ -256,7 +253,12 @@ export const FlashcardProvider = ({ children }) => {
       };
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
 
-      const { error } = await supabase.from('flashcards').update(payload).eq('id', id);
+      const { error } = await supabase
+        .from('flashcards')
+        .update(payload)
+        .eq('id', id)
+        .eq('user_id', user.id); // extra safety with RLS
+
       if (error) throw error;
     } catch (err) {
       console.error('[Flashcards] Error updating Supabase flashcard:', err);
@@ -264,19 +266,25 @@ export const FlashcardProvider = ({ children }) => {
   };
 
   const deleteFlashcard = async (id) => {
+    // Update sets + local array first
     setSets((prevSets) =>
       prevSets.map((s) => ({
         ...s,
         flashcardIds: s.flashcardIds.filter((fid) => fid !== id),
-      })),
+      }))
     );
     setFlashcards((prev) => prev.filter((c) => c.id !== id));
 
     const isUuid = typeof id === 'string' && id.includes('-');
-    if (!isUuid) return;
+    if (!isUuid || !user) return;
 
     try {
-      const { error } = await supabase.from('flashcards').delete().eq('id', id);
+      const { error } = await supabase
+        .from('flashcards')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id); // extra safety with RLS
+
       if (error) throw error;
     } catch (err) {
       console.error('[Flashcards] Error deleting Supabase flashcard:', err);
@@ -286,7 +294,7 @@ export const FlashcardProvider = ({ children }) => {
   // ---------- SETS ----------
   const updateSetFlashcards = (setId, flashcardIds) => {
     setSets((prev) =>
-      prev.map((s) => (s.id === setId ? { ...s, flashcardIds } : s)),
+      prev.map((s) => (s.id === setId ? { ...s, flashcardIds } : s))
     );
   };
 
@@ -301,24 +309,69 @@ export const FlashcardProvider = ({ children }) => {
       .filter(Boolean);
   };
 
-  // ---------- DAILY TRACKING (unchanged) ----------
+  // ---------- DAILY TRACKING (now tagged per-user) ----------
   const saveTrackingData = (data) => {
-    const idx = history.findIndex((h) => h.date === data.date);
-    if (idx >= 0) {
-      const next = [...history];
-      next[idx] = data;
-      setHistory(next);
-    } else {
-      setHistory((prev) => [...prev, data]);
-    }
+    const userId = user?.id || data.userId || data.user_id || null;
+    const record = userId ? { ...data, userId } : { ...data };
+
+    setHistory((prev) => {
+      let base = prev;
+
+      // If this record is tied to a user, keep only that user's records
+      if (userId) {
+        base = prev.filter(
+          (h) =>
+            (h.userId && h.userId === userId) ||
+            (h.user_id && h.user_id === userId)
+        );
+      }
+
+      const idx = base.findIndex((h) => h.date === record.date);
+      if (idx >= 0) {
+        const next = [...base];
+        next[idx] = record;
+        return next;
+      }
+
+      return [...base, record];
+    });
   };
 
-  const getTrackingData = (date) =>
-    history.find((h) => h.date === date) || null;
+  const getTrackingData = (date) => {
+    const userId = user?.id;
+
+    // If no user, just return first matching date (old single-user behavior)
+    if (!userId) {
+      return history.find((h) => h.date === date) || null;
+    }
+
+    return (
+      history.find(
+        (h) =>
+          h.date === date &&
+          (
+            (h.userId && h.userId === userId) ||
+            (h.user_id && h.user_id === userId) ||
+            (!h.userId && !h.user_id) // backward compat: old entries without user info
+          )
+      ) || null
+    );
+  };
 
   const getFlashcardStats = () => {
+    const userId = user?.id;
     const stats = {};
-    history.forEach((day) => {
+
+    const relevantHistory = userId
+      ? history.filter(
+          (h) =>
+            (h.userId && h.userId === userId) ||
+            (h.user_id && h.user_id === userId) ||
+            (!h.userId && !h.user_id) // backward compat
+        )
+      : history;
+
+    relevantHistory.forEach((day) => {
       Object.entries(day.setUsage || {}).forEach(([setId, count]) => {
         if (count > 0) {
           const set = sets.find((s) => s.id === parseInt(setId, 10));
@@ -327,14 +380,14 @@ export const FlashcardProvider = ({ children }) => {
               stats[fid] = (stats[fid] || 0) + count;
               const card = flashcards.find((c) => c.id === fid);
               if (card) {
-                stats[card.categoryId] =
-                  (stats[card.categoryId] || 0) + count;
+                stats[card.categoryId] = (stats[card.categoryId] || 0) + count;
               }
             });
           }
         }
       });
     });
+
     return stats;
   };
 
