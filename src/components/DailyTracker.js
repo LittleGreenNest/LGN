@@ -1,51 +1,30 @@
-// src/components/DailyTracker.js
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useFlashcards } from '../context/FlashcardContext';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useFlashcards } from "../context/FlashcardContext";
 import {
   getDailyTrackingForDate,
   saveDailyTrackingForDate,
-} from '../lib/trackingApi';
+} from "../lib/trackingApi";
 
 const MAX_WORDS_PER_SET = 5;
 
 const DailyTracker = () => {
   const { currentUser } = useAuth();
+  const { sets } = useFlashcards();
 
-  const {
-    sets,
-    categories,
-    flashcards,
-    getFlashcardsForSet,
-    addFlashcard,
-    updateSetFlashcards,
-    saveTrackingData,
-  } = useFlashcards();
-
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   const [selectedSets, setSelectedSets] = useState([]);
   const [setUsage, setSetUsage] = useState({});
   const [engagement, setEngagement] = useState(0);
-  const [timeOfDay, setTimeOfDay] = useState('');
-  const [notes, setNotes] = useState('');
-  const [saveStatus, setSaveStatus] = useState('');
+  const [timeOfDay, setTimeOfDay] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
 
-  const [showFlashcardManager, setShowFlashcardManager] = useState(false);
-  const [selectedSetForManage, setSelectedSetForManage] = useState(null);
+  // lightbox for /manage-flashcards
+  const [showManageLightbox, setShowManageLightbox] = useState(false);
 
-  const [manageSearchTerm, setManageSearchTerm] = useState('');
-  const [manageActiveCategoryId, setManageActiveCategoryId] = useState('all');
-
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newFlashcardWord, setNewFlashcardWord] = useState('');
-  const [newFlashcardEnglish, setNewFlashcardEnglish] = useState('');
-  const [newFlashcardPinyin, setNewFlashcardPinyin] = useState('');
-  const [newFlashcardCategory, setNewFlashcardCategory] = useState('');
-
-  // -------------------------------------------------------------
-  // 🔄 Load today's data from Supabase via trackingApi
-  // -------------------------------------------------------------
+  // Load today's data
   useEffect(() => {
     if (!currentUser) return;
 
@@ -58,20 +37,24 @@ const DailyTracker = () => {
 
         const setIds = todayData.selected_sets || [];
         setSelectedSets(
-          setIds.map((id) => (typeof id === 'string' ? parseInt(id, 10) : id))
+          setIds.map((id) =>
+            typeof id === "string" ? parseInt(id, 10) : id
+          )
         );
 
         const usage = {};
-        Object.entries(todayData.set_usage || {}).forEach(([setId, count]) => {
-          usage[parseInt(setId, 10)] = count;
-        });
+        Object.entries(todayData.set_usage || {}).forEach(
+          ([setId, count]) => {
+            usage[parseInt(setId, 10)] = count;
+          }
+        );
 
         setSetUsage(usage);
         setEngagement(todayData.engagement || 0);
-        setTimeOfDay(todayData.time_of_day || '');
-        setNotes(todayData.notes || '');
+        setTimeOfDay(todayData.time_of_day || "");
+        setNotes(todayData.notes || "");
       } catch (err) {
-        console.error('Error loading today tracking:', err);
+        console.error("Error loading today tracking:", err);
       }
     }
 
@@ -81,32 +64,50 @@ const DailyTracker = () => {
     };
   }, [currentUser, today]);
 
-  // -------------------------------------------------------------
-  // 💾 Save today's data (Supabase + local history)
-  // -------------------------------------------------------------
-  const handleSave = async () => {
+  // Toggle a set's selection
+  const toggleSet = (setId) => {
+    if (selectedSets.includes(setId)) {
+      const newSelected = selectedSets.filter((id) => id !== setId);
+      const newUsage = { ...setUsage };
+      delete newUsage[setId];
+      setSelectedSets(newSelected);
+      setSetUsage(newUsage);
+    } else {
+      setSelectedSets([...selectedSets, setId]);
+      setSetUsage((prev) => ({
+        ...prev,
+        [setId]: prev[setId] || 0,
+      }));
+    }
+  };
+
+  // Increment / decrement usage count for a set
+  const incrementCount = (setId) => {
+    setSetUsage((prev) => ({
+      ...prev,
+      [setId]: (prev[setId] || 0) + 1,
+    }));
+  };
+
+  const decrementCount = (setId) => {
+    setSetUsage((prev) => {
+      const current = prev[setId] || 0;
+      const next = current > 0 ? current - 1 : 0;
+      return { ...prev, [setId]: next };
+    });
+  };
+
+  // Save today's data
+  const saveData = async () => {
     if (!currentUser) {
-      setSaveStatus('Please log in to save your tracking.');
+      alert("Please log in to save your tracking.");
       return;
     }
 
-    setSaveStatus('Saving...');
-
-    // IMPORTANT: match trackingApi's expected shape
-    const payload = {
-      selectedSets,
-      setUsage,
-      engagement,
-      timeOfDay,
-      notes,
-    };
+    setSaveStatus("Saving...");
 
     try {
-      await saveDailyTrackingForDate(today, payload);
-
-      // keep local history in sync
-      saveTrackingData({
-        date: today,
+      await saveDailyTrackingForDate(currentUser.id, today, {
         selectedSets,
         setUsage,
         engagement,
@@ -114,365 +115,249 @@ const DailyTracker = () => {
         notes,
       });
 
-      setSaveStatus('Saved!');
-      setTimeout(() => setSaveStatus(''), 2000);
-    } catch (err) {
-      console.error('Error saving tracking:', err);
-      setSaveStatus('Error saving. Please try again.');
+      setSaveStatus("Saved successfully!");
+    } catch (error) {
+      console.error("Error saving data:", error);
+      setSaveStatus("Error saving data");
+    } finally {
+      setTimeout(() => setSaveStatus(""), 3000);
     }
   };
 
-  // -------------------------------------------------------------
-  // UI helpers
-  // -------------------------------------------------------------
-  const toggleSetSelection = (setId) => {
-    setSelectedSets((prev) =>
-      prev.includes(setId) ? prev.filter((id) => id !== setId) : [...prev, setId]
-    );
-  };
-
-  const handleSetUsageChange = (setId, value) => {
-    const count = parseInt(value || '0', 10);
-    setSetUsage((prev) => ({
-      ...prev,
-      [setId]: Number.isNaN(count) ? 0 : count,
-    }));
-  };
-
-  const handleCreateFlashcard = async (e) => {
-    e.preventDefault();
-    if (!newFlashcardWord || !newFlashcardCategory) return;
-
-    const card = await addFlashcard(
-      newFlashcardWord,
-      newFlashcardCategory,
-      newFlashcardEnglish,
-      newFlashcardPinyin
-    );
-
-    if (selectedSetForManage) {
-      const currentIds =
-        sets.find((s) => s.id === selectedSetForManage)?.flashcardIds || [];
-      updateSetFlashcards(selectedSetForManage, [...currentIds, card.id]);
-    }
-
-    setNewFlashcardWord('');
-    setNewFlashcardEnglish('');
-    setNewFlashcardPinyin('');
-    setNewFlashcardCategory('');
-    setShowCreateForm(false);
-  };
-
-  const filteredFlashcards = flashcards.filter((card) => {
-    if (
-      manageActiveCategoryId !== 'all' &&
-      card.categoryId !== manageActiveCategoryId
-    ) {
-      return false;
-    }
-    if (!manageSearchTerm.trim()) return true;
-    const term = manageSearchTerm.toLowerCase();
-    return (
-      card.word.toLowerCase().includes(term) ||
-      (card.english || '').toLowerCase().includes(term) ||
-      (card.pinyin || '').toLowerCase().includes(term)
-    );
-  });
-
-  // -------------------------------------------------------------
-  // JSX (same structure as you have now)
-  // -------------------------------------------------------------
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-gray-900">
-          Daily Flashcard Tracker
-        </h1>
-        <div className="text-sm text-gray-500">Today: {today}</div>
-      </div>
-
-      {/* Sets Selection */}
-      <div className="bg-white rounded-lg shadow p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">
-            Flashcard Sets Used
-          </h2>
-          <button
-            type="button"
-            className="text-sm text-indigo-600 hover:text-indigo-700"
-            onClick={() => setShowFlashcardManager((prev) => !prev)}
-          >
-            {showFlashcardManager ? 'Hide Flashcard Manager' : 'Manage Flashcards'}
-          </button>
-        </div>
-        <p className="text-sm text-gray-500">
-          Select the sets you used today and record how many times you flashed
-          each set. Each set usually has about {MAX_WORDS_PER_SET} words.
-        </p>
-
-        <div className="space-y-2">
-          {sets.map((set) => {
-            const cards = getFlashcardsForSet(set.id);
-            const count = setUsage[set.id] || 0;
-            return (
-              <div
-                key={set.id}
-                className="flex items-center justify-between border rounded-md px-3 py-2"
-              >
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300"
-                    checked={selectedSets.includes(set.id)}
-                    onChange={() => toggleSetSelection(set.id)}
-                  />
-                  <div>
-                    <div className="font-medium text-gray-900">{set.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {cards.length} cards in this set
-                    </div>
-                  </div>
-                </label>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500">Times flashed</span>
-                  <input
-                    type="number"
-                    min="0"
-                    className="w-16 border rounded px-2 py-1 text-sm"
-                    value={count}
-                    onChange={(e) =>
-                      handleSetUsageChange(set.id, e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            );
-          })}
-          {sets.length === 0 && (
-            <p className="text-sm text-gray-500">
-              You don&apos;t have any sets yet. Create flashcards and group them
-              into sets first.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Engagement + Time of Day + Notes */}
-      <div className="bg-white rounded-lg shadow p-4 space-y-4">
-        <h2 className="text-lg font-medium text-gray-900">Session Details</h2>
-
-        {/* Engagement */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Engagement Rating (1–5)
-          </label>
-          <div className="flex items-center space-x-4">
-            <input
-              type="range"
-              min="0"
-              max="5"
-              step="1"
-              value={engagement}
-              onChange={(e) => setEngagement(parseInt(e.target.value, 10))}
-              className="w-full"
-            />
-            <span className="text-lg font-semibold text-gray-900">
-              {engagement}/5
-            </span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            0 = skipped, 5 = super engaged and happy.
-          </p>
+    <>
+      <div className="max-w-3xl mx-auto p-4 space-y-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-semibold text-gray-900">
+            Daily Flashcard Tracker
+          </h1>
+          <div className="text-sm text-gray-500">Today: {today}</div>
         </div>
 
-        {/* Time of day */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Time of Day
-          </label>
-          <select
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-            value={timeOfDay}
-            onChange={(e) => setTimeOfDay(e.target.value)}
-          >
-            <option value="">Select...</option>
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
-            <option value="evening">Evening</option>
-            <option value="night">Night</option>
-          </select>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notes
-          </label>
-          <textarea
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Anything special about today's session? Meltdowns, new words, favourite card, etc."
-          />
-        </div>
-
-        {/* Save button + status */}
-        <div className="flex items-center justify-between pt-2">
-          <button
-            type="button"
-            onClick={handleSave}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-          >
-            Save Today&apos;s Tracking
-          </button>
-          {saveStatus && (
-            <div className="text-sm text-gray-600">{saveStatus}</div>
-          )}
-        </div>
-      </div>
-
-      {/* Flashcard Manager (simple) */}
-      {showFlashcardManager && (
-        <div className="bg-white rounded-lg shadow p-4 space-y-4">
-          <h2 className="text-lg font-medium text-gray-900">
-            Flashcard Manager
-          </h2>
-
-          {/* Choose set to manage */}
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-700">Manage set:</span>
-            <select
-              className="border-gray-300 rounded-md text-sm"
-              value={selectedSetForManage || ''}
-              onChange={(e) =>
-                setSelectedSetForManage(
-                  e.target.value ? parseInt(e.target.value, 10) : null
-                )
-              }
-            >
-              <option value="">None</option>
-              {sets.map((set) => (
-                <option key={set.id} value={set.id}>
-                  {set.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              className="flex-1 border rounded-md px-2 py-1 text-sm"
-              placeholder="Search flashcards..."
-              value={manageSearchTerm}
-              onChange={(e) => setManageSearchTerm(e.target.value)}
-            />
-            <select
-              className="border-gray-300 rounded-md text-sm"
-              value={manageActiveCategoryId}
-              onChange={(e) => setManageActiveCategoryId(e.target.value)}
-            >
-              <option value="all">All categories</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+        {/* Set Selection */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium">Select sets for today:</h3>
             <button
               type="button"
-              className="text-sm text-indigo-600 hover:text-indigo-700"
-              onClick={() => setShowCreateForm((prev) => !prev)}
+              onClick={() => setShowManageLightbox(true)}
+              className="text-xs text-indigo-600 hover:text-indigo-700 underline"
             >
-              {showCreateForm ? 'Cancel' : 'Add New Flashcard'}
+              Manage flashcards
             </button>
           </div>
-
-          {/* Create form */}
-          {showCreateForm && (
-            <form
-              onSubmit={handleCreateFlashcard}
-              className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2"
-            >
-              <input
-                type="text"
-                className="border rounded-md px-2 py-1 text-sm"
-                placeholder="Chinese word"
-                value={newFlashcardWord}
-                onChange={(e) => setNewFlashcardWord(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                className="border rounded-md px-2 py-1 text-sm"
-                placeholder="English"
-                value={newFlashcardEnglish}
-                onChange={(e) => setNewFlashcardEnglish(e.target.value)}
-              />
-              <input
-                type="text"
-                className="border rounded-md px-2 py-1 text-sm"
-                placeholder="Pinyin"
-                value={newFlashcardPinyin}
-                onChange={(e) => setNewFlashcardPinyin(e.target.value)}
-              />
-              <select
-                className="border rounded-md px-2 py-1 text-sm"
-                value={newFlashcardCategory}
-                onChange={(e) => setNewFlashcardCategory(e.target.value)}
-                required
+          <p className="text-xs text-gray-500 mb-3">
+            Choose the sets you used today. Each set usually has about{" "}
+            {MAX_WORDS_PER_SET} words.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sets.map((set) => (
+              <button
+                key={set.id}
+                onClick={() => toggleSet(set.id)}
+                className={`px-3 py-2 rounded-full text-sm font-medium transition-colors ${
+                  selectedSets.includes(set.id)
+                    ? "bg-green-500 text-white"
+                    : "bg-gray-100 text-gray-700"
+                }`}
               >
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              <div className="md:col-span-4 flex justify-end mt-2">
-                <button
-                  type="submit"
-                  className="px-3 py-1 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-                >
-                  Save Flashcard
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Flashcards list */}
-          <div className="mt-3 max-h-64 overflow-y-auto border rounded-md divide-y">
-            {filteredFlashcards.map((card) => (
-              <div
-                key={card.id}
-                className="px-3 py-2 flex items-center justify-between text-sm"
-              >
-                <div>
-                  <div className="font-medium text-gray-900">{card.word}</div>
-                  <div className="text-xs text-gray-500">
-                    {(card.english || '') +
-                      (card.pinyin ? ` · ${card.pinyin}` : '')}
-                  </div>
-                </div>
-                <div className="text-xs text-gray-400">
-                  {
-                    categories.find((c) => c.id === card.categoryId)?.name ||
-                    'Uncategorised'
-                  }
-                </div>
-              </div>
+                {set.name}
+              </button>
             ))}
-            {filteredFlashcards.length === 0 && (
-              <div className="px-3 py-2 text-sm text-gray-500">
-                No flashcards match your filters yet.
-              </div>
+            {sets.length === 0 && (
+              <p className="text-sm text-gray-500">
+                No sets yet — add some flashcards first.
+              </p>
             )}
           </div>
         </div>
+
+        {/* Tracking Selected Sets */}
+        {selectedSets.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 className="font-medium mb-3">Track flashes:</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Tap + once each time you flash the whole set.
+            </p>
+            <div className="space-y-4">
+              {sets
+                .filter((set) => selectedSets.includes(set.id))
+                .map((set) => {
+                  const setCards = Array.isArray(set.cards) ? set.cards : [];
+                  return (
+                    <div key={set.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium">{set.name}</h4>
+                        <div className="text-gray-500 text-sm">
+                          {setCards.length} words in this set
+                        </div>
+                      </div>
+
+                      {/* Words preview */}
+                      {setCards.length > 0 && (
+                        <div className="text-xs text-gray-500 mb-3">
+                          {setCards.map((card, index) => (
+                            <span key={card.id || index}>
+                              {card.word}
+                              {index < setCards.length - 1 && ", "}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Counter */}
+                      <div className="flex items-center justify-end">
+                        <button
+                          onClick={() => decrementCount(set.id)}
+                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
+                        >
+                          -
+                        </button>
+
+                        <span className="mx-3 text-xl font-medium">
+                          {setUsage[set.id] || 0}
+                        </span>
+
+                        <button
+                          onClick={() => incrementCount(set.id)}
+                          className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        {/* Engagement Tracking */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="font-medium mb-3">Track Child&apos;s Engagement</h3>
+
+          {/* Engagement Rating */}
+          <div className="mb-4">
+            <div className="text-sm mb-2">
+              How engaged was your child today?
+            </div>
+            <div className="flex gap-3">
+              {[1, 2, 3, 4, 5].map((rating) => (
+                <button
+                  key={rating}
+                  onClick={() => setEngagement(rating)}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    rating <= engagement
+                      ? "bg-yellow-400 text-white"
+                      : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {rating <= 2 ? "😐" : rating <= 4 ? "😊" : "😃"}
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              1 = Minimal Interest • 5 = Highly Engaged
+            </div>
+          </div>
+
+          {/* Time of Day */}
+          <div className="mb-4">
+            <div className="text-sm mb-2">
+              When was your child most engaged?
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {["Morning", "Afternoon", "Evening", "Night"].map((time) => (
+                <button
+                  key={time}
+                  onClick={() => setTimeOfDay(time)}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    timeOfDay === time
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {time}{" "}
+                  {time === "Morning"
+                    ? "🌅"
+                    : time === "Afternoon"
+                    ? "☀️"
+                    : time === "Evening"
+                    ? "🌆"
+                    : "🌙"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="mt-4">
+            <label
+              className="block text-sm font-medium mb-2"
+              htmlFor="notes"
+            >
+              Notes for Today
+            </label>
+            <textarea
+              id="notes"
+              rows="3"
+              className="w-full border rounded-md p-2 text-sm"
+              placeholder="Record observations, words recognised, special moments..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="mt-4 flex justify-end">
+          {saveStatus && (
+            <div
+              className={`mr-4 py-2 px-4 rounded text-sm ${
+                saveStatus.includes("Error")
+                  ? "bg-red-100 text-red-700"
+                  : saveStatus === "Saving..."
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-green-100 text-green-700"
+              }`}
+            >
+              {saveStatus}
+            </div>
+          )}
+          <button
+            onClick={saveData}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+          >
+            Save Today&apos;s Records
+          </button>
+        </div>
+      </div>
+
+      {/* Lightbox with /manage-flashcards in an iframe */}
+      {showManageLightbox && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-5xl h-[80vh]">
+            <div className="flex items-center justify-between px-4 py-2 border-b">
+              <h2 className="text-sm font-semibold text-gray-800">
+                Manage flashcards
+              </h2>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-700 text-lg leading-none"
+                onClick={() => setShowManageLightbox(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <iframe
+              src="/manage-flashcards"
+              title="Manage flashcards"
+              className="w-full h-[calc(100%-40px)] border-0 rounded-b-lg"
+            />
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 };
 

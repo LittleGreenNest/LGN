@@ -1,396 +1,267 @@
 // src/context/FlashcardContext.js
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../supabaseClient';
-import { useAuth } from '../context/AuthContext';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { supabase } from "../supabaseClient";
+import { useAuth } from "./AuthContext";
 
 const FlashcardContext = createContext();
 
-// ----- Defaults (categories/sets only – NO default flashcards) -----
-const defaultCategories = [
-  { id: 'cat1', name: 'Animals' },
-  { id: 'cat2', name: 'Vehicles' },
-  { id: 'cat3', name: 'Household' },
-  { id: 'cat4', name: 'Nature' },
-  { id: 'cat5', name: 'Body Parts' },
-];
-
-const defaultSets = [
-  { id: 1, name: 'Set 1', flashcardIds: [] },
-  { id: 2, name: 'Set 2', flashcardIds: [] },
-  { id: 3, name: 'Set 3', flashcardIds: [] },
-  { id: 4, name: 'Set 4', flashcardIds: [] },
-  { id: 5, name: 'Set 5', flashcardIds: [] },
-];
-
-// helper kept for future, even if unused right now
-const normalize = (cards) =>
-  cards.map((c) => ({
-    english: '',
-    pinyin: '',
-    cardType: 'word',
-    phraseGroup: '',
-    ...c,
-  }));
-
-export const FlashcardProvider = ({ children }) => {
+export function FlashcardProvider({ children }) {
   const { currentUser } = useAuth();
   const user = currentUser;
 
-  const [categories, setCategories] = useState([]);
   const [flashcards, setFlashcards] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [filterCategory, setFilterCategory] = useState("All Categories");
   const [sets, setSets] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // ---------- INITIAL LOAD ----------
+  // Local storage key for guests
+  const LOCAL_KEY = "sprouttie_flashcards_v1";
+
+  const loadFromLocalStorage = () => {
+    try {
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if (!raw) {
+        setFlashcards([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setFlashcards(Array.isArray(parsed) ? parsed : []);
+    } catch (err) {
+      console.error("[Flashcards] Error reading localStorage", err);
+      setFlashcards([]);
+    }
+  };
+
+  const saveToLocalStorage = (cards) => {
+    try {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(cards));
+    } catch (err) {
+      console.error("[Flashcards] Error writing localStorage", err);
+    }
+  };
+
+  // -----------------------------------------------------------
+  // Initial load when user changes
+  // -----------------------------------------------------------
   useEffect(() => {
-    const load = async () => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+
+      // 1) Not logged in → guest mode → localStorage
+      if (!user) {
+        console.log("[Flashcards] No user; using localStorage only");
+        loadFromLocalStorage();
+        setLoading(false);
+        return;
+      }
+
+      // 2) Logged in → Supabase
       try {
-        // categories / sets / history from localStorage (or defaults)
-        const savedCategories = localStorage.getItem('categories');
-        setCategories(savedCategories ? JSON.parse(savedCategories) : defaultCategories);
-
-        const savedSets = localStorage.getItem('sets');
-        setSets(savedSets ? JSON.parse(savedSets) : defaultSets);
-
-        const savedHistory = localStorage.getItem('history');
-        if (savedHistory) setHistory(JSON.parse(savedHistory));
-
-        // If not signed in yet, just use local flashcards (no Supabase query)
-        if (!user) {
-          console.log('[Flashcards] No user yet, using localStorage only');
-          const saved = localStorage.getItem('flashcards');
-          const fallback = saved ? JSON.parse(saved) : [];
-          setFlashcards(fallback);
-          return;
-        }
-
-        // Load only this user's flashcards from Supabase (RLS-friendly)
         const { data, error } = await supabase
-          .from('flashcards')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
+          .from("flashcards")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
 
         if (error) {
-          console.warn(
-            '[Flashcards] Supabase error, falling back to localStorage:',
-            error.message
-          );
-          const saved = localStorage.getItem('flashcards');
-          const fallback = saved ? JSON.parse(saved) : [];
-          setFlashcards(fallback);
+          console.error("[Flashcards] Supabase select error", error);
+          if (!cancelled) {
+            // fall back to empty (or local if you want)
+            setFlashcards([]);
+          }
           return;
         }
 
-        if (!data || data.length === 0) {
-          const saved = localStorage.getItem('flashcards');
-          const fallback = saved ? JSON.parse(saved) : [];
-          setFlashcards(fallback);
-          return;
+        if (!cancelled) {
+          setFlashcards(data || []);
+          // once we’re in Supabase mode, clear any old local guest data
+          localStorage.removeItem(LOCAL_KEY);
         }
-
-        // map DB rows → UI format
-        const mapped = data.map((row) => ({
-          id: row.id,
-          word: row.word,
-          english: row.english || '',
-          pinyin: row.pinyin || '',
-          categoryId: row.category_id || '',
-          cardType: row.card_type || 'word',
-          phraseGroup: row.phrase_group || '',
-        }));
-
-        setFlashcards(mapped);
-        localStorage.setItem('flashcards', JSON.stringify(mapped));
       } catch (err) {
-        console.error('[Flashcards] Unexpected load error:', err);
-        const saved = localStorage.getItem('flashcards');
-        const fallback = saved ? JSON.parse(saved) : [];
-        setFlashcards(fallback);
+        console.error("[Flashcards] Unexpected load error", err);
+        if (!cancelled) setFlashcards([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    };
+    }
 
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
-  // ---------- LOCAL PERSIST ----------
+  // -----------------------------------------------------------
+  // Derive categories + sets whenever flashcards change
+  // -----------------------------------------------------------
   useEffect(() => {
-    if (categories.length) {
-      localStorage.setItem('categories', JSON.stringify(categories));
-    }
-  }, [categories]);
+    // Categories are just unique category strings
+    const catSet = new Set();
+    flashcards.forEach((card) => {
+      if (card.category) catSet.add(card.category);
+    });
+    setCategories(Array.from(catSet));
 
-  useEffect(() => {
-    localStorage.setItem('flashcards', JSON.stringify(flashcards));
+    // Simple 5 sets, chunked evenly
+    const setsArr = [];
+    const total = flashcards.length;
+    const chunkSize = total > 0 ? Math.ceil(total / 5) : 0;
+
+    for (let i = 0; i < 5; i++) {
+      const start = i * chunkSize;
+      const end = start + chunkSize;
+      const setCards =
+        chunkSize > 0 ? flashcards.slice(start, end) : [];
+      setsArr.push({
+        id: i + 1,
+        name: `Set ${i + 1}`,
+        cards: setCards,
+      });
+    }
+
+    setSets(setsArr);
   }, [flashcards]);
 
-  useEffect(() => {
-    if (sets.length) {
-      localStorage.setItem('sets', JSON.stringify(sets));
-    }
-  }, [sets]);
+  // Filtered list for any list views
+  const filteredFlashcards = useMemo(() => {
+    if (filterCategory === "All Categories") return flashcards;
+    return flashcards.filter((card) => card.category === filterCategory);
+  }, [flashcards, filterCategory]);
 
-  useEffect(() => {
-    localStorage.setItem('history', JSON.stringify(history));
-  }, [history]);
+  // -----------------------------------------------------------
+  // CRUD
+  // -----------------------------------------------------------
 
-  // ---------- CATEGORY CRUD ----------
-  const addCategory = (name) => {
-    const newCategory = { id: `cat${Date.now()}`, name };
-    setCategories((prev) => [...prev, newCategory]);
-    return newCategory;
-  };
+  // ✅ This version ALWAYS writes to Supabase for logged-in users
+  const addFlashcard = async ({
+    word,
+    english,
+    pinyin,
+    category,
+    card_type,
+    phrase_group,
+  }) => {
+    if (!word?.trim()) return;
 
-  const updateCategory = (id, name) => {
-    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
-  };
-
-  const deleteCategory = (id) => {
-    const hasCards = flashcards.some((c) => c.categoryId === id);
-    if (hasCards) {
-      return {
-        success: false,
-        message: 'Cannot delete category with flashcards. Remove flashcards first.',
-      };
-    }
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    return { success: true };
-  };
-
-  // ---------- FLASHCARD CRUD (UI-first, Supabase second) ----------
-  const addFlashcard = async (word, categoryId, english = '', pinyin = '', options = {}) => {
-    const { cardType = 'word', phraseGroup = '' } = options;
-
-    const tempId = `f${Date.now()}`;
-    const tempCard = {
-      id: tempId,
-      word,
-      english,
-      pinyin,
-      categoryId,
-      cardType,
-      phraseGroup,
+    const baseCard = {
+      word: word.trim(),
+      english: english?.trim() || "",
+      pinyin: pinyin?.trim() || "",
+      category: category?.trim() || "Unknown",
+      card_type: card_type || "Word",
+      phrase_group: phrase_group || "",
     };
-    setFlashcards((prev) => [...prev, tempCard]);
 
-    // If not logged in, keep card local-only (no Supabase / RLS)
+    // Guest mode → just localStorage
     if (!user) {
-      console.warn('[addFlashcard] No user logged in; keeping flashcard local-only');
-      return tempCard;
+      console.warn(
+        "[addFlashcard] No user logged in; saving to localStorage only."
+      );
+      const updated = [...flashcards, { id: Date.now(), ...baseCard }];
+      setFlashcards(updated);
+      saveToLocalStorage(updated);
+      return;
     }
 
     try {
       const { data, error } = await supabase
-        .from('flashcards')
+        .from("flashcards")
         .insert({
+          ...baseCard,
           user_id: user.id,
-          word,
-          english,
-          pinyin,
-          category_id: categoryId,
-          card_type: cardType,
-          phrase_group: phraseGroup,
         })
-        .select()
+        .select("*")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[addFlashcard] Supabase insert error", error);
+        alert("Could not save flashcard to the server.");
+        return;
+      }
 
-      const realCard = {
-        id: data.id,
-        word: data.word,
-        english: data.english || '',
-        pinyin: data.pinyin || '',
-        categoryId: data.category_id || '',
-        cardType: data.card_type || 'word',
-        phraseGroup: data.phrase_group || '',
-      };
-
-      setFlashcards((prev) => prev.map((c) => (c.id === tempId ? realCard : c)));
-      return realCard;
+      // Append new row from Supabase (has real uuid)
+      setFlashcards((prev) => [...prev, data]);
     } catch (err) {
-      console.error(
-        '[Flashcards] Error inserting into Supabase, keeping local-only card:',
-        err
-      );
-      // keep temp card in local state
-      return tempCard;
+      console.error("[addFlashcard] Unexpected error", err);
+      alert("Unexpected error saving flashcard.");
     }
   };
 
   const updateFlashcard = async (id, updates) => {
-    // Update locally first
+    // Optimistic UI
     setFlashcards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      prev.map((card) => (card.id === id ? { ...card, ...updates } : card))
     );
 
-    const isUuid = typeof id === 'string' && id.includes('-');
-    if (!isUuid || !user) return;
+    if (!user) {
+      // update localStorage only
+      const updated = flashcards.map((card) =>
+        card.id === id ? { ...card, ...updates } : card
+      );
+      saveToLocalStorage(updated);
+      return;
+    }
 
     try {
-      const payload = {
-        word: updates.word,
-        english: updates.english,
-        pinyin: updates.pinyin,
-        category_id: updates.categoryId,
-        card_type: updates.cardType,
-        phrase_group: updates.phraseGroup,
-      };
-      Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
-
       const { error } = await supabase
-        .from('flashcards')
-        .update(payload)
-        .eq('id', id)
-        .eq('user_id', user.id);
+        .from("flashcards")
+        .update({ ...updates, user_id: user.id })
+        .eq("id", id)
+        .eq("user_id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("[updateFlashcard] Supabase update error", error);
+      }
     } catch (err) {
-      console.error('[Flashcards] Error updating Supabase flashcard:', err);
+      console.error("[updateFlashcard] Unexpected error", err);
     }
   };
 
   const deleteFlashcard = async (id) => {
-    setSets((prevSets) =>
-      prevSets.map((s) => ({
-        ...s,
-        flashcardIds: s.flashcardIds.filter((fid) => fid !== id),
-      }))
-    );
-    setFlashcards((prev) => prev.filter((c) => c.id !== id));
+    // Optimistic UI
+    setFlashcards((prev) => prev.filter((card) => card.id !== id));
 
-    const isUuid = typeof id === 'string' && id.includes('-');
-    if (!isUuid || !user) return;
+    if (!user) {
+      const updated = flashcards.filter((card) => card.id !== id);
+      saveToLocalStorage(updated);
+      return;
+    }
 
     try {
       const { error } = await supabase
-        .from('flashcards')
+        .from("flashcards")
         .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("[deleteFlashcard] Supabase delete error", error);
+      }
     } catch (err) {
-      console.error('[Flashcards] Error deleting Supabase flashcard:', err);
+      console.error("[deleteFlashcard] Unexpected error", err);
     }
-  };
-
-  // ---------- SETS ----------
-  const updateSetFlashcards = (setId, flashcardIds) => {
-    setSets((prev) =>
-      prev.map((s) => (s.id === setId ? { ...s, flashcardIds } : s))
-    );
-  };
-
-  const getFlashcardsByCategory = (categoryId) =>
-    flashcards.filter((c) => c.categoryId === categoryId);
-
-  const getFlashcardsForSet = (setId) => {
-    const set = sets.find((s) => s.id === setId);
-    if (!set) return [];
-    return set.flashcardIds
-      .map((id) => flashcards.find((c) => c.id === id))
-      .filter(Boolean);
-  };
-
-  // ---------- DAILY TRACKING (local side, tagged per-user when possible) ----------
-  const saveTrackingData = (data) => {
-    const userId = user?.id || data.userId || data.user_id || null;
-    const record = userId ? { ...data, userId } : { ...data };
-
-    setHistory((prev) => {
-      let base = prev;
-
-      if (userId) {
-        base = prev.filter(
-          (h) =>
-            (h.userId && h.userId === userId) ||
-            (h.user_id && h.user_id === userId)
-        );
-      }
-
-      const idx = base.findIndex((h) => h.date === record.date);
-      if (idx >= 0) {
-        const next = [...base];
-        next[idx] = record;
-        return next;
-      }
-
-      return [...base, record];
-    });
-  };
-
-  const getTrackingData = (date) => {
-    const userId = user?.id;
-
-    if (!userId) {
-      return history.find((h) => h.date === date) || null;
-    }
-
-    return (
-      history.find(
-        (h) =>
-          h.date === date &&
-          (
-            (h.userId && h.userId === userId) ||
-            (h.user_id && h.user_id === userId) ||
-            (!h.userId && !h.user_id) // backward compat
-          )
-      ) || null
-    );
-  };
-
-  const getFlashcardStats = () => {
-    const userId = user?.id;
-    const stats = {};
-
-    const relevantHistory = userId
-      ? history.filter(
-          (h) =>
-            (h.userId && h.userId === userId) ||
-            (h.user_id && h.user_id === userId) ||
-            (!h.userId && !h.user_id)
-        )
-      : history;
-
-    relevantHistory.forEach((day) => {
-      Object.entries(day.setUsage || {}).forEach(([setId, count]) => {
-        if (count > 0) {
-          const set = sets.find((s) => s.id === parseInt(setId, 10));
-          if (set) {
-            set.flashcardIds.forEach((fid) => {
-              stats[fid] = (stats[fid] || 0) + count;
-              const card = flashcards.find((c) => c.id === fid);
-              if (card) {
-                stats[card.categoryId] = (stats[card.categoryId] || 0) + count;
-              }
-            });
-          }
-        }
-      });
-    });
-
-    // you can expand this later (averageEngagement etc.)
-    return stats;
   };
 
   const value = {
-    categories,
     flashcards,
+    categories,
     sets,
-    history,
-    addCategory,
-    updateCategory,
-    deleteCategory,
+    filterCategory,
+    setFilterCategory,
     addFlashcard,
     updateFlashcard,
     deleteFlashcard,
-    updateSetFlashcards,
-    getFlashcardsByCategory,
-    getFlashcardsForSet,
-    saveTrackingData,
-    getTrackingData,
-    getFlashcardStats,
+    loading,
+    filteredFlashcards,
   };
 
   return (
@@ -398,6 +269,8 @@ export const FlashcardProvider = ({ children }) => {
       {children}
     </FlashcardContext.Provider>
   );
-};
+}
 
-export const useFlashcards = () => useContext(FlashcardContext);
+export function useFlashcards() {
+  return useContext(FlashcardContext);
+}

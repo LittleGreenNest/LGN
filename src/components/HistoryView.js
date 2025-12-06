@@ -8,26 +8,36 @@ const HistoryView = () => {
   const { history, getFlashcardStats } = useFlashcards();
   const { currentUser } = useAuth();
 
+  // Always coerce history to an array so .some/.filter/.map are safe
   const filteredHistory = useMemo(() => {
-    if (!currentUser) return history;
+    const baseHistory = Array.isArray(history) ? history : [];
+
+    // If not logged in, just show whatever history we have (probably empty)
+    if (!currentUser) return baseHistory;
 
     const userId = currentUser.id;
-    const anyHaveUserId = history.some((h) => h.userId || h.user_id);
 
-    if (!anyHaveUserId) return history;
+    // Check if any entries actually store a user id
+    const anyHaveUserId = baseHistory.some((h) => h?.userId || h?.user_id);
 
-    return history.filter(
+    // If nothing has user_id yet (older local data), just return all
+    if (!anyHaveUserId) return baseHistory;
+
+    // Otherwise filter by current user
+    return baseHistory.filter(
       (h) =>
         (h.userId && h.userId === userId) ||
         (h.user_id && h.user_id === userId)
     );
   }, [history, currentUser]);
 
-  const stats = getFlashcardStats();
+  const stats = getFlashcardStats?.() ?? {};
 
   const handleExport = () => {
     try {
-      const baseHistory = filteredHistory;
+      const baseHistory = Array.isArray(filteredHistory)
+        ? filteredHistory
+        : [];
 
       const dataToExport =
         selectedMonth === 'All History'
@@ -63,7 +73,9 @@ const HistoryView = () => {
       dataToExport.forEach((day) => {
         const date = new Date(day.date);
         const formattedDate = date.toLocaleDateString('en-US');
-        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+        const dayOfWeek = date.toLocaleDateString('en-US', {
+          weekday: 'long',
+        });
         const setsUsed = (day.selectedSets || []).join(', ');
         const totalFlashes = Object.values(day.setUsage || {}).reduce(
           (sum, count) => sum + count,
@@ -269,12 +281,12 @@ const HistoryView = () => {
         </div>
       </div>
 
-      {/* Summary Card – static numbers for now */}
+      {/* Summary Card – still mostly static for now */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Monthly Summary
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm-grid-cols-3 gap-4 mb-4">
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="text-sm font-medium text-gray-500 mb-1">
               Total Sessions
@@ -288,9 +300,7 @@ const HistoryView = () => {
             <h4 className="text-sm font-medium text-gray-500 mb-1">
               Avg. Engagement
             </h4>
-            <p className="text-2xl font-bold text-gray-900">
-              {0}/5
-            </p>
+            <p className="text-2xl font-bold text-gray-900">{0}/5</p>
             <p className="text-sm text-gray-500">
               <span className="text-green-500">↑ 0.0</span> from last month
             </p>
@@ -305,9 +315,6 @@ const HistoryView = () => {
             </p>
           </div>
         </div>
-
-        {/* The rest of the summary blocks left as-is */}
-        {/* ... */}
       </div>
     </div>
   );
