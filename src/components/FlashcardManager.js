@@ -329,8 +329,65 @@ const FlashcardManager = () => {
             </form>
           </div>
 
-          {/* Categories List (unchanged) */}
-          {/* ... existing categories list code stays the same ... */}
+          {/* Categories List */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="font-medium mb-3">Categories</h3>
+            {categories.length === 0 ? (
+              <p className="text-gray-500">No categories yet. Add one above.</p>
+            ) : (
+              <div className="space-y-2">
+                {categories.map(category => (
+                  <div key={category.id} className="border rounded-md p-3 flex justify-between items-center">
+                    {editCategoryId === category.id ? (
+                      <form onSubmit={handleUpdateCategory} className="flex-1 flex gap-2">
+                        <input
+                          type="text"
+                          className="flex-1 border rounded-md px-3 py-1"
+                          value={editCategoryName}
+                          onChange={(e) => setEditCategoryName(e.target.value)}
+                          required
+                        />
+                        <button 
+                          type="submit"
+                          className="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600"
+                        >
+                          Save
+                        </button>
+                        <button 
+                          type="button"
+                          className="bg-gray-200 px-3 py-1 rounded-md hover:bg-gray-300"
+                          onClick={() => {
+                            setEditCategoryId(null);
+                            setEditCategoryName('');
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <span>{category.name}</span>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleEditCategory(category)}
+                            className="text-blue-500 hover:text-blue-700"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCategory(category.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
